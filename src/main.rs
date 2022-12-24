@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 struct Cell {
     col: u8,
     row: u8,
@@ -14,7 +14,7 @@ impl Cell {
 
 #[derive(Copy, Clone)]
 struct Board {
-    cells: Vec<Cell>,
+    cells: [Cell; 81],
 }
 
 impl Board {
@@ -64,7 +64,11 @@ fn new_board() -> Board {
             })
         }
     }
-    return Board { cells };
+    let cells_array = match <[Cell; 81]>::try_from(cells) {
+        Ok(arr) => arr,
+        Err(_) => panic!("Could not convert cells to array."),
+    };
+    return Board { cells: cells_array };
 }
 
 fn sqr_idx(col: u8, row: u8) -> u8 {
