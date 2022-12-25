@@ -7,6 +7,7 @@ struct Cell {
     sqr: u8,
     value: u8,
     poss_idx: usize,
+    og: bool,
 }
 
 impl Cell {
@@ -24,7 +25,7 @@ struct Board {
     cells: [Cell; 81],
     generation: u32,
     idx: usize,
-    direction: i8,
+    direction: i32,
 }
 
 impl Board {
@@ -74,18 +75,12 @@ impl Board {
     }
 
     fn next_generation(self) -> Board {
-        let idx = self.idx;
         let cell: Cell = self.cells[self.idx];
         println!("{cell:#?}");
-        if cell.value > 0 {
-            let idx_increment = self.idx + 1 * usize::try_from(self.direction).unwrap();
-            println!("idx_increment {idx_increment}");
-            return Board {
-                cells: self.cells,
-                generation: self.generation,
-                idx: self.idx + idx_increment,
-                direction: self.direction,
-            };
+        if cell.og {
+            let idx =
+                usize::try_from(<i32>::try_from(self.idx).unwrap() + 1 * self.direction).unwrap();
+            return Board { idx, ..self };
         }
         let poss: Vec<u8> = self.possibilities(cell);
         if poss.is_empty() {
@@ -119,12 +114,18 @@ fn new_board(board_string: &String) -> Board {
     let mut cells: Vec<Cell> = Vec::new();
     for row in 1..10 {
         for col in 1..10 {
+            let value = digits[idx];
+            let og = match value {
+                0 => false,
+                _ => true,
+            };
             cells.push(Cell {
-                value: digits[idx],
+                value,
                 row,
                 col,
                 sqr: sqr_idx(col, row),
                 poss_idx: 0,
+                og,
             });
             idx += 1;
         }
@@ -158,7 +159,7 @@ fn main() {
     println!("generation {generation}");
     println!("idx {idx}");
     println!("{board_string}");
-    for _ in 0..3 {
+    for _ in 0..15 {
         board = board.next_generation();
         let board_string = board.string();
         let generation = board.generation;
@@ -167,14 +168,6 @@ fn main() {
         println!("idx {idx}");
         println!("{board_string}");
     }
-    // let nghs = board.neighbours(Cell {
-    //     value: 0,
-    //     col: 1,
-    //     row: 1,
-    //     sqr: 1,
-    //     poss_idx: 0,
-    // });
-    // println!("{nghs:#?}");
 }
 
 #[cfg(test)]
@@ -192,6 +185,7 @@ mod tests {
             row,
             sqr,
             poss_idx: 0,
+            og: false,
         };
 
         let new_cell = cell.set_value(1);
@@ -203,7 +197,10 @@ mod tests {
 
     #[test]
     fn test_new_board() {
-        let _ = new_board();
+        let board_string = String::from(
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
+        );
+        let _ = new_board(&board_string);
     }
 
     #[test]
