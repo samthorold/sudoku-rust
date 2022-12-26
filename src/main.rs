@@ -1,6 +1,9 @@
+//! Sudoku solver implementation in Rust.
+
 use std::cmp::max;
 use std::env;
 
+/// Digit box in a Sudoku board.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 struct Cell {
     row: u8,
@@ -12,6 +15,11 @@ struct Cell {
 }
 
 impl Cell {
+    /// New Cell with the next untried value from the possibilities.
+    ///
+    /// # Arguments
+    ///
+    /// * `poss` - Possible values given the neighbouring Cell values.
     fn next_value(self, poss: Vec<u8>) -> Cell {
         let mut tried = self.tried;
         for value in poss {
@@ -32,6 +40,7 @@ impl Cell {
     }
 }
 
+/// 9x9 Sudoku board.
 #[derive(Copy, Clone)]
 struct Board {
     cells: [Cell; 81],
@@ -41,6 +50,7 @@ struct Board {
 }
 
 impl Board {
+    /// String representation of a Board.
     fn string(self) -> String {
         let important_idx: [u8; 2] = [3, 6];
         let mut s: String = String::from("\n");
@@ -59,6 +69,11 @@ impl Board {
         return s;
     }
 
+    /// Cells sharing a column, row, or square.
+    ///
+    /// # Arguments
+    ///
+    /// *cell* - Target Cell to return neighbouring Cells for.
     fn neighbours(self, cell: Cell) -> Vec<Cell> {
         let mut nghs = Vec::new();
         for friend in self.cells {
@@ -72,6 +87,11 @@ impl Board {
         return nghs;
     }
 
+    /// Possible Cell values given the neighbouring Cell.
+    ///
+    /// # Arguments
+    ///
+    /// *cell* - Target Cell to return possible values for.
     fn possibilities(self, cell: Cell) -> Vec<u8> {
         let mut poss: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
         for neighbour in self.neighbours(cell) {
@@ -86,6 +106,7 @@ impl Board {
         return poss;
     }
 
+    /// Update the value for a single Cell and return a new Board.
     fn next_generation(self) -> Board {
         let cell: Cell = self.cells[self.idx];
         if cell.og {
@@ -129,6 +150,7 @@ impl Board {
         }
     }
 
+    /// Is the Board completed?
     fn is_completed(self) -> bool {
         return self.idx > 80;
     }
