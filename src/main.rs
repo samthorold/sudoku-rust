@@ -88,18 +88,25 @@ impl Board {
 
     fn next_generation(self) -> Board {
         let cell: Cell = self.cells[self.idx];
-        println!("{cell:#?}");
+        let row = cell.row;
+        let col = cell.col;
+        // println!("{cell:#?}");
         if cell.og {
             let idx = usize::try_from(
-                max(<i32>::try_from(self.idx).unwrap() + 1 * self.direction, 0)
+                max(
+                    <i32>::try_from(self.idx).unwrap() + 1 * self.direction,
+                    0
+                )
             ).unwrap();
             let direction = match idx {
                 0 => 1,
                 _ => self.direction
             };
+            // println!("{col} {row} {direction} og");
             return Board { idx, direction, ..self };
         }
         let poss: Vec<u8> = self.possibilities(cell);
+        // println!("{poss:#?}");
         // if poss.is_empty() {
         //     return Board {
         //         cells: self.cells,
@@ -108,10 +115,12 @@ impl Board {
         //         direction: -1,
         //     };
         // } else {
-        let new_cell: Cell = cell.next_value(poss);
+        let mut new_cell: Cell = cell.next_value(poss);
+        let value = new_cell.value;
+        // println!("{col} {row} {value}");
         let mut new_cells: [Cell; 81] = self.cells;
-        new_cells[self.idx] = new_cell;
         if new_cell.value > 0 {
+            new_cells[self.idx] = new_cell;
             return Board {
                 cells: new_cells,
                 generation: self.generation + 1,
@@ -119,6 +128,8 @@ impl Board {
                 direction: 1,
             };
         } else {
+            new_cell.tried = [false, false, false, false, false, false, false, false, false];
+            new_cells[self.idx] = new_cell;
             let idx = max(self.idx - 1, 0);
             let direction = match idx {
                 0 => 1,
@@ -180,25 +191,29 @@ fn main() {
     println!("Sudoku (Rust)");
     let args: Vec<String> = env::args().collect();
     let board_string = &args[1];
-    // dbg!(board_string);
 
     let mut board = new_board(board_string);
     let board_string = board.string();
-    let generation = board.generation;
-    let idx = board.idx;
-    println!("generation {generation}");
-    println!("idx {idx}");
+    // let generation = board.generation;
     println!("{board_string}");
-    for i in 0..200 {
+    // println!("---");
+    for _ in 0..50000 {
+        if board.idx > 80 {
+            break
+        }
+        // println!("i {i}");
+        // let idx = board.idx;
+        // println!("cell idx {idx}");
+        // let board_string = board.string();
+        // println!("{board_string}");
         board = board.next_generation();
-        let board_string = board.string();
-        let generation = board.generation;
-        let idx = board.idx;
-        println!("i {i}");
-        // println!("generation {generation}");
-        println!("idx {idx}");
-        println!("{board_string}");
+        // let board_string = board.string();
+        // println!("{board_string}");
+        // println!("---");
     }
+
+    let board_string = board.string();
+    println!("{board_string}");
 }
 
 #[cfg(test)]
