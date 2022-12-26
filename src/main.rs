@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::env;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -6,17 +7,28 @@ struct Cell {
     col: u8,
     sqr: u8,
     value: u8,
-    poss_idx: usize,
+    tried: [bool; 9],
     og: bool,
 }
 
 impl Cell {
-    fn set_value(self, value: u8) -> Cell {
+    fn next_value(self, poss: Vec<u8>) -> Cell {
+        let mut tried = self.tried;
+        for value in poss {
+            let idx = <usize>::try_from(value - 1).unwrap();
+            if !tried[idx] {
+                tried[idx] = true;
+                return Cell {
+                    value,
+                    tried,
+                    ..self
+                };
+            }
+        }
         return Cell {
-            value,
-            poss_idx: self.poss_idx + 1,
+            value: 0,
             ..self
-        };
+        }
     }
 }
 
@@ -78,30 +90,48 @@ impl Board {
         let cell: Cell = self.cells[self.idx];
         println!("{cell:#?}");
         if cell.og {
-            let idx =
-                usize::try_from(<i32>::try_from(self.idx).unwrap() + 1 * self.direction).unwrap();
-            return Board { idx, ..self };
+            let idx = usize::try_from(
+                max(<i32>::try_from(self.idx).unwrap() + 1 * self.direction, 0)
+            ).unwrap();
+            let direction = match idx {
+                0 => 1,
+                _ => self.direction
+            };
+            return Board { idx, direction, ..self };
         }
         let poss: Vec<u8> = self.possibilities(cell);
-        if poss.is_empty() {
-            return Board {
-                cells: self.cells,
-                generation: self.generation + 1,
-                idx: self.idx - 1,
-                direction: -1,
-            };
-        } else {
-            let this_poss: u8 = poss[cell.poss_idx];
-            let new_cell: Cell = cell.set_value(this_poss);
-            let mut new_cells: [Cell; 81] = self.cells;
-            new_cells[self.idx] = new_cell;
+        // if poss.is_empty() {
+        //     return Board {
+        //         cells: self.cells,
+        //         generation: self.generation + 1,
+        //         idx: self.idx - 1,
+        //         direction: -1,
+        //     };
+        // } else {
+        let new_cell: Cell = cell.next_value(poss);
+        let mut new_cells: [Cell; 81] = self.cells;
+        new_cells[self.idx] = new_cell;
+        if new_cell.value > 0 {
             return Board {
                 cells: new_cells,
                 generation: self.generation + 1,
                 idx: self.idx + 1,
                 direction: 1,
             };
+        } else {
+            let idx = max(self.idx - 1, 0);
+            let direction = match idx {
+                0 => 1,
+                _ => -1,
+            };
+            return Board {
+                cells: new_cells,
+                generation: self.generation,
+                idx,
+                direction,
+            };
         }
+        // }
     }
 }
 
@@ -124,7 +154,7 @@ fn new_board(board_string: &String) -> Board {
                 row,
                 col,
                 sqr: sqr_idx(col, row),
-                poss_idx: 0,
+                tried: [false, false, false, false, false, false, false, false, false],
                 og,
             });
             idx += 1;
@@ -159,12 +189,13 @@ fn main() {
     println!("generation {generation}");
     println!("idx {idx}");
     println!("{board_string}");
-    for _ in 0..15 {
+    for i in 0..200 {
         board = board.next_generation();
         let board_string = board.string();
         let generation = board.generation;
         let idx = board.idx;
-        println!("generation {generation}");
+        println!("i {i}");
+        // println!("generation {generation}");
         println!("idx {idx}");
         println!("{board_string}");
     }
