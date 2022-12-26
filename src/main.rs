@@ -44,7 +44,6 @@ impl Cell {
 #[derive(Copy, Clone)]
 struct Board {
     cells: [Cell; 81],
-    generation: u32,
     idx: usize,
     direction: i32,
 }
@@ -129,7 +128,6 @@ impl Board {
             new_cells[self.idx] = new_cell;
             return Board {
                 cells: new_cells,
-                generation: self.generation + 1,
                 idx: self.idx + 1,
                 direction: 1,
             };
@@ -143,7 +141,6 @@ impl Board {
             };
             return Board {
                 cells: new_cells,
-                generation: self.generation,
                 idx,
                 direction,
             };
@@ -187,7 +184,6 @@ fn new_board(board_string: &String) -> Board {
     };
     return Board {
         cells: cells_array,
-        generation: 0,
         idx: 0,
         direction: 1,
     };
