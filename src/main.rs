@@ -127,7 +127,10 @@ impl Board {
                 direction,
             };
         }
-        // }
+    }
+
+    fn is_completed(self) -> bool {
+        return self.idx > 80;
     }
 }
 
@@ -172,20 +175,26 @@ fn sqr_idx(col: u8, row: u8) -> u8 {
     return (col - 1) / 3 + 3 * ((row - 1) / 3) + 1;
 }
 
+fn solve(mut board: Board) -> Board {
+    for _ in 0..1000000 {
+        if board.is_completed() {
+            break
+        }
+        board = board.next_generation();
+    }
+    return board
+}
+
 fn main() {
     println!("Sudoku (Rust)");
     let args: Vec<String> = env::args().collect();
     let board_string = &args[1];
 
-    let mut board = new_board(board_string);
+    let board = new_board(board_string);
     let board_string = board.string();
     println!("{board_string}");
-    for _ in 0..50000 {
-        if board.idx > 80 {
-            break
-        }
-        board = board.next_generation();
-    }
+
+    let board = solve(board);
 
     let board_string = board.string();
     println!("{board_string}");
