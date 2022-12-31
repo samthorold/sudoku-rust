@@ -11,7 +11,7 @@ fn main() {
     let board_string = board.string();
     println!("{board_string}");
 
-    let board = sudoku_rust::solve(board);
+    let board = sudoku_rust::backtrack(board);
 
     let board_string = board.string();
     println!("{board_string}");

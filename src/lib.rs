@@ -195,7 +195,7 @@ fn sqr_idx(col: u8, row: u8) -> u8 {
     return (col - 1) / 3 + 3 * ((row - 1) / 3) + 1;
 }
 
-pub fn solve(board: Board) -> Board {
+pub fn backtrack(board: Board) -> Board {
     let mut b = board;
     for _ in 0..1000000 {
         if b.is_completed() {
