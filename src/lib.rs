@@ -1,6 +1,7 @@
 //! Sudoku solver implementation in Rust.
 
 use std::cmp::max;
+use std::fmt;
 
 /// Digit box in a Sudoku board.
 #[derive(Copy, Clone, Debug)]
@@ -10,37 +11,86 @@ struct Cell {
     sqr: u8,
     value: u8,
     tried: [bool; 9],
+    poss: [bool; 9],
     og: bool,
 }
 
+impl fmt::Display for Cell {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "c{}r{}v{}", self.col, self.row, self.value)
+    }
+}
+
 impl Cell {
-    /// New Cell with the next untried value from the possibilities.
+
+    fn new(value: u8, row: u8, col: u8, sqr: u8, og: bool) -> Cell {
+        return Cell {
+            row,
+            col,
+            sqr,
+            og,
+            value,
+            tried: [false, false, false, false, false, false, false, false, false],
+            poss: [true, true, true, true, true, true, true, true, true],
+        };
+    }
+
+    fn can_set(&self) -> bool {
+        return !self.og;
+    }
+
+    /// Set the possible values for the Cell given its neighbours.
     ///
     /// # Arguments
     ///
-    /// * `poss` - Possible values given the neighbouring Cell values.
-    fn next_value(&self, poss: [bool; 9]) -> Cell {
-        let mut tried = self.tried;
-        for (idx, _) in poss.iter().enumerate() {
-            if !tried[idx] && poss[idx] {
-                tried[idx] = true;
-                return Cell {
-                    value: u8::try_from(idx + 1).unwrap(),
-                    tried,
-                    ..*self
-                };
+    /// *neighbours* - Neighbour cells from the same row, column, and square.
+    fn set_possibilities(&mut self, neighbours: &Vec<Cell>) {
+        for neighbour in neighbours {
+            if neighbour.is_set() {
+                self.poss[usize::try_from(neighbour.value - 1).unwrap()] = false;
             }
         }
-        return Cell { value: 0, ..*self };
+    }
+
+    /// Update Cell value with the next untried value from the possibilities.
+    fn set_value(&mut self) {
+        for (idx, p) in self.poss.iter().enumerate() {
+            if (!self.tried[idx]) && *p {
+                self.tried[idx] = true;
+                self.value = u8::try_from(idx + 1).unwrap();
+                return;
+            }
+        }
+        self.value = 0;
+        return;
+    }
+
+    fn is_set(&self) -> bool {
+        return self.value > 0;
+    }
+
+    /// Reset the Cell - nothing tried and all values possible.
+    fn reset(&mut self) {
+        if self.og {
+            panic!("Cannot reset an OG Cell");
+        }
+        self.tried = [false, false, false, false, false, false, false, false, false];
+        self.poss = [true, true, true, true, true, true, true, true, true];
+        self.value = 0;
     }
 }
 
 /// 9x9 Sudoku board.
-#[derive(Copy, Clone)]
 pub struct Board {
     cells: [Cell; 81],
     idx: usize,
     direction: i32,
+}
+
+impl fmt::Display for Board {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} {}", self.direction, self.idx)
+    }
 }
 
 impl Board {
@@ -68,7 +118,7 @@ impl Board {
     /// # Arguments
     ///
     /// *cell* - Target Cell to return neighbouring Cells for.
-    fn neighbours(&self, cell: Cell) -> Vec<Cell> {
+    fn neighbours(&self, cell: &Cell) -> Vec<Cell> {
         let mut nghs = Vec::new();
         for friend in self.cells {
             if (cell.row == friend.row) & (cell.col == friend.col) {
@@ -81,25 +131,10 @@ impl Board {
         return nghs;
     }
 
-    /// Possible Cell values given the neighbouring Cell.
-    ///
-    /// # Arguments
-    ///
-    /// *cell* - Target Cell to return possible values for.
-    fn possibilities(&self, cell: Cell) -> [bool; 9] {
-        let mut poss: [bool; 9] = [true, true, true, true, true, true, true, true, true];
-        for neighbour in self.neighbours(cell) {
-            if neighbour.value > 0 {
-                poss[usize::try_from(neighbour.value-1).unwrap()] = false;
-            }
-        }
-        return poss;
-    }
-
-    /// Update the value for a single Cell and return a new Board.
-    fn next_generation(&self) -> Board {
-        let cell: Cell = self.cells[self.idx];
-        if cell.og {
+    /// Update the value for a single Cell.
+    fn next_generation(&mut self) {
+        let mut cell = self.cells[self.idx];
+        if !cell.can_set() {
             let idx = usize::try_from(max(
                 <i32>::try_from(self.idx).unwrap() + 1 * self.direction,
                 0,
@@ -109,37 +144,27 @@ impl Board {
                 0 => 1,
                 _ => self.direction,
             };
-            return Board {
-                idx,
-                direction,
-                ..*self
-            };
+            self.idx = idx;
+            self.direction = direction;
+            return;
         }
-        let poss = self.possibilities(cell);
-        let mut new_cell: Cell = cell.next_value(poss);
-        let mut new_cells: [Cell; 81] = self.cells;
-        if new_cell.value > 0 {
-            new_cells[self.idx] = new_cell;
-            return Board {
-                cells: new_cells,
-                idx: self.idx + 1,
-                direction: 1,
-            };
+        let neighbours = self.neighbours(&cell);
+        cell.set_possibilities(&neighbours);
+        cell.set_value();
+        if cell.is_set() {
+            self.cells[self.idx] = cell;
+            self.idx += 1;
+            self.direction = 1;
         } else {
-            new_cell.tried = [
-                false, false, false, false, false, false, false, false, false,
-            ];
-            new_cells[self.idx] = new_cell;
+            cell.reset();
+            self.cells[self.idx] = cell;
             let idx = max(self.idx - 1, 0);
             let direction = match idx {
                 0 => 1,
                 _ => -1,
             };
-            return Board {
-                cells: new_cells,
-                idx,
-                direction,
-            };
+            self.idx = idx;
+            self.direction = direction;
         }
     }
 
@@ -162,16 +187,15 @@ impl Board {
                     0 => false,
                     _ => true,
                 };
-                cells.push(Cell {
-                    value,
-                    row,
-                    col,
-                    sqr: sqr_idx(col, row),
-                    tried: [
-                        false, false, false, false, false, false, false, false, false,
-                    ],
-                    og,
-                });
+                cells.push(
+                    Cell::new(
+                        value,
+                        row,
+                        col,
+                        sqr_idx(col, row),
+                        og,
+                    )
+                );
                 idx += 1;
             }
         }
@@ -190,15 +214,14 @@ fn sqr_idx(col: u8, row: u8) -> u8 {
     return (col - 1) / 3 + 3 * ((row - 1) / 3) + 1;
 }
 
-pub fn backtrack(board: Board) -> Board {
-    let mut b = board;
-    for _ in 0..1000000 {
-        if b.is_completed() {
-            break;
+pub fn backtrack(board: &mut Board) {
+    for _ in 0..10000000 {
+        if board.is_completed() {
+            return;
         }
-        b = b.next_generation();
+        board.next_generation();
     }
-    return b;
+    panic!("Did not find solution.");
 }
 
 #[cfg(test)]
@@ -233,9 +256,9 @@ mod tests {
             000080079\
             ",
         );
-        let board = Board::new(&board_string);
-        let solution = backtrack(board);
-        assert!(solution.is_completed());
-        assert_eq!(solution.string(), exp);
+        let mut board = Board::new(&board_string);
+        backtrack(&mut board);
+        assert!(board.is_completed());
+        assert_eq!(board.string(), exp);
     }
 }

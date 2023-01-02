@@ -7,11 +7,11 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let board_string = &args[1];
 
-    let board = sudoku_rust::Board::new(board_string);
+    let mut board = sudoku_rust::Board::new(board_string);
     let board_string = board.string();
     println!("{board_string}");
 
-    let board = sudoku_rust::backtrack(board);
+    sudoku_rust::backtrack(&mut board);
 
     let board_string = board.string();
     println!("{board_string}");
