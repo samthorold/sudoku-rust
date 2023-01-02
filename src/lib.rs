@@ -3,7 +3,7 @@
 use std::cmp::max;
 
 /// Digit box in a Sudoku board.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Debug)]
 struct Cell {
     row: u8,
     col: u8,
