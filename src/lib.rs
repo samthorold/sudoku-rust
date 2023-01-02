@@ -19,14 +19,13 @@ impl Cell {
     /// # Arguments
     ///
     /// * `poss` - Possible values given the neighbouring Cell values.
-    fn next_value(&self, poss: Vec<u8>) -> Cell {
+    fn next_value(&self, poss: [bool; 9]) -> Cell {
         let mut tried = self.tried;
-        for value in poss {
-            let idx = <usize>::try_from(value - 1).unwrap();
-            if !tried[idx] {
+        for (idx, _) in poss.iter().enumerate() {
+            if !tried[idx] && poss[idx] {
                 tried[idx] = true;
                 return Cell {
-                    value,
+                    value: u8::try_from(idx + 1).unwrap(),
                     tried,
                     ..*self
                 };
@@ -87,15 +86,11 @@ impl Board {
     /// # Arguments
     ///
     /// *cell* - Target Cell to return possible values for.
-    fn possibilities(&self, cell: Cell) -> Vec<u8> {
-        let mut poss: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+    fn possibilities(&self, cell: Cell) -> [bool; 9] {
+        let mut poss: [bool; 9] = [true, true, true, true, true, true, true, true, true];
         for neighbour in self.neighbours(cell) {
             if neighbour.value > 0 {
-                let idx = match poss.binary_search(&neighbour.value) {
-                    Ok(idx) => idx,
-                    Err(_) => continue,
-                };
-                poss.remove(idx);
+                poss[usize::try_from(neighbour.value-1).unwrap()] = false;
             }
         }
         return poss;
@@ -120,7 +115,7 @@ impl Board {
                 ..*self
             };
         }
-        let poss: Vec<u8> = self.possibilities(cell);
+        let poss = self.possibilities(cell);
         let mut new_cell: Cell = cell.next_value(poss);
         let mut new_cells: [Cell; 81] = self.cells;
         if new_cell.value > 0 {
