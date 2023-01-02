@@ -19,7 +19,7 @@ impl Cell {
     /// # Arguments
     ///
     /// * `poss` - Possible values given the neighbouring Cell values.
-    fn next_value(self, poss: Vec<u8>) -> Cell {
+    fn next_value(&self, poss: Vec<u8>) -> Cell {
         let mut tried = self.tried;
         for value in poss {
             let idx = <usize>::try_from(value - 1).unwrap();
@@ -28,11 +28,11 @@ impl Cell {
                 return Cell {
                     value,
                     tried,
-                    ..self
+                    ..*self
                 };
             }
         }
-        return Cell { value: 0, ..self };
+        return Cell { value: 0, ..*self };
     }
 }
 
@@ -46,7 +46,7 @@ pub struct Board {
 
 impl Board {
     /// String representation of a Board.
-    pub fn string(self) -> String {
+    pub fn string(&self) -> String {
         let important_idx: [u8; 2] = [3, 6];
         let mut s: String = String::from("\n");
         for cell in self.cells {
@@ -69,7 +69,7 @@ impl Board {
     /// # Arguments
     ///
     /// *cell* - Target Cell to return neighbouring Cells for.
-    fn neighbours(self, cell: Cell) -> Vec<Cell> {
+    fn neighbours(&self, cell: Cell) -> Vec<Cell> {
         let mut nghs = Vec::new();
         for friend in self.cells {
             if (cell.row == friend.row) & (cell.col == friend.col) {
@@ -87,7 +87,7 @@ impl Board {
     /// # Arguments
     ///
     /// *cell* - Target Cell to return possible values for.
-    fn possibilities(self, cell: Cell) -> Vec<u8> {
+    fn possibilities(&self, cell: Cell) -> Vec<u8> {
         let mut poss: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
         for neighbour in self.neighbours(cell) {
             if neighbour.value > 0 {
@@ -102,7 +102,7 @@ impl Board {
     }
 
     /// Update the value for a single Cell and return a new Board.
-    fn next_generation(self) -> Board {
+    fn next_generation(&self) -> Board {
         let cell: Cell = self.cells[self.idx];
         if cell.og {
             let idx = usize::try_from(max(
@@ -117,7 +117,7 @@ impl Board {
             return Board {
                 idx,
                 direction,
-                ..self
+                ..*self
             };
         }
         let poss: Vec<u8> = self.possibilities(cell);
@@ -149,7 +149,7 @@ impl Board {
     }
 
     /// Is the Board completed?
-    fn is_completed(self) -> bool {
+    fn is_completed(&self) -> bool {
         return self.idx > 80;
     }
 
@@ -211,7 +211,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_solve() {
+    fn test_backtrack() {
         let exp = "\n\
         534|678|912\n\
         672|195|348\n\
@@ -239,7 +239,7 @@ mod tests {
             ",
         );
         let board = Board::new(&board_string);
-        let solution = solve(board);
+        let solution = backtrack(board);
         assert!(solution.is_completed());
         assert_eq!(solution.string(), exp);
     }
