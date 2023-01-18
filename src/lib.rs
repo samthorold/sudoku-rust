@@ -22,6 +22,24 @@ impl fmt::Display for Cell {
 }
 
 impl Cell {
+    /// Create a new `Cell`.
+    ///
+    /// Arguments are 0-indexed.
+    ///
+    /// # Arguments
+    ///
+    /// * `value` - value, 0-9 where 0 means unset.
+    /// * `row` - row or y-coordinate on the board.
+    /// * `col` - col or x-coordinate on the board.
+    /// * `sqr` - 3x3 box the `Cell` sits in.
+    /// * `og` - did the `Cell` have a value when the `Board` was created?
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sudoku_rust::Cell;
+    /// let cell = Cell::new(1, 1, 1, 1, true);
+    /// ```
     pub fn new(value: u8, row: u8, col: u8, sqr: u8, og: bool) -> Cell {
         return Cell {
             row,
@@ -42,7 +60,7 @@ impl Cell {
     ///
     /// # Arguments
     ///
-    /// *neighbours* - Neighbour cells from the same row, column, and square.
+    /// * neighbours - Neighbour cells from the same row, column, and square.
     pub fn set_possibilities(&mut self, neighbours: &Vec<Cell>) {
         for neighbour in neighbours {
             if neighbour.is_set() {
@@ -116,7 +134,7 @@ impl Board {
     ///
     /// # Arguments
     ///
-    /// *cell* - Target Cell to return neighbouring Cells for.
+    /// *cell* - Target `Cell` to return neighbouring `Cells` for.
     pub fn neighbours(&self, cell: &Cell) -> Vec<Cell> {
         let mut nghs = Vec::new();
         for friend in self.cells {
@@ -131,6 +149,7 @@ impl Board {
     }
 
     /// Update the value for a single Cell.
+    // Really, this is part of the backtrack algorithm
     fn next_generation(&mut self) {
         let mut cell = self.cells[self.idx];
         if !cell.can_set() {
@@ -168,6 +187,7 @@ impl Board {
     }
 
     /// Is the Board completed?
+    // Really, this is part of the backtrack algorithm
     fn is_completed(&self) -> bool {
         return self.idx > 80;
     }
