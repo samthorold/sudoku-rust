@@ -5,7 +5,7 @@ use std::fmt;
 
 /// Digit box in a Sudoku board.
 #[derive(Copy, Clone, Debug)]
-struct Cell {
+pub struct Cell {
     row: u8,
     col: u8,
     sqr: u8,
@@ -22,8 +22,7 @@ impl fmt::Display for Cell {
 }
 
 impl Cell {
-
-    fn new(value: u8, row: u8, col: u8, sqr: u8, og: bool) -> Cell {
+    pub fn new(value: u8, row: u8, col: u8, sqr: u8, og: bool) -> Cell {
         return Cell {
             row,
             col,
@@ -35,7 +34,7 @@ impl Cell {
         };
     }
 
-    fn can_set(&self) -> bool {
+    pub fn can_set(&self) -> bool {
         return !self.og;
     }
 
@@ -44,7 +43,7 @@ impl Cell {
     /// # Arguments
     ///
     /// *neighbours* - Neighbour cells from the same row, column, and square.
-    fn set_possibilities(&mut self, neighbours: &Vec<Cell>) {
+    pub fn set_possibilities(&mut self, neighbours: &Vec<Cell>) {
         for neighbour in neighbours {
             if neighbour.is_set() {
                 self.poss[usize::try_from(neighbour.value - 1).unwrap()] = false;
@@ -53,7 +52,7 @@ impl Cell {
     }
 
     /// Update Cell value with the next untried value from the possibilities.
-    fn set_value(&mut self) {
+    pub fn set_value(&mut self) {
         for (idx, p) in self.poss.iter().enumerate() {
             if (!self.tried[idx]) && *p {
                 self.tried[idx] = true;
@@ -65,12 +64,12 @@ impl Cell {
         return;
     }
 
-    fn is_set(&self) -> bool {
+    pub fn is_set(&self) -> bool {
         return self.value > 0;
     }
 
     /// Reset the Cell - nothing tried and all values possible.
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         if self.og {
             panic!("Cannot reset an OG Cell");
         }
@@ -118,7 +117,7 @@ impl Board {
     /// # Arguments
     ///
     /// *cell* - Target Cell to return neighbouring Cells for.
-    fn neighbours(&self, cell: &Cell) -> Vec<Cell> {
+    pub fn neighbours(&self, cell: &Cell) -> Vec<Cell> {
         let mut nghs = Vec::new();
         for friend in self.cells {
             if (cell.row == friend.row) & (cell.col == friend.col) {
