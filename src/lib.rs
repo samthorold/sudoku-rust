@@ -47,7 +47,9 @@ impl Cell {
             sqr,
             og,
             value,
-            tried: [false, false, false, false, false, false, false, false, false],
+            tried: [
+                false, false, false, false, false, false, false, false, false,
+            ],
             poss: [true, true, true, true, true, true, true, true, true],
         };
     }
@@ -91,7 +93,9 @@ impl Cell {
         if self.og {
             panic!("Cannot reset an OG Cell");
         }
-        self.tried = [false, false, false, false, false, false, false, false, false];
+        self.tried = [
+            false, false, false, false, false, false, false, false, false,
+        ];
         self.poss = [true, true, true, true, true, true, true, true, true];
         self.value = 0;
     }
@@ -206,15 +210,7 @@ impl Board {
                     0 => false,
                     _ => true,
                 };
-                cells.push(
-                    Cell::new(
-                        value,
-                        row,
-                        col,
-                        sqr_idx(col, row),
-                        og,
-                    )
-                );
+                cells.push(Cell::new(value, row, col, sqr_idx(col, row), og));
                 idx += 1;
             }
         }
