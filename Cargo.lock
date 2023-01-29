@@ -3,5 +3,13 @@
 version = 3
 
 [[package]]
-name = "sudoku_rust"
+name = "backtrack"
+version = "0.1.0"
+
+[[package]]
+name = "dlx"
+version = "0.1.0"
+
+[[package]]
+name = "sudoku"
 version = "0.1.0"
