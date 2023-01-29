@@ -1,13 +1,14 @@
 //! Sudoku game
 
+use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::fmt;
 
 /// Digit box in a Sudoku board.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq)]
 pub struct Cell {
     row: u8,
     col: u8,
-    sqr: u8,
     val: u8,
     og: bool,
 }
@@ -18,36 +19,42 @@ impl fmt::Display for Cell {
     }
 }
 
+impl PartialEq for Cell {
+    fn eq(&self, other: &Self) -> bool {
+        (self.col == other.col) & (self.row == other.row)
+    }
+}
+
+impl Ord for Cell {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.row == other.row {
+            return self.col.cmp(&other.col);
+        }
+        return self.row.cmp(&other.row);
+    }
+}
+
+impl PartialOrd for Cell {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl Cell {
-    /// Create a new `Cell`.
-    ///
-    /// Arguments are 0-indexed.
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - value, 0-9 where 0 means unset.
-    /// * `row` - row or y-coordinate on the board.
-    /// * `col` - col or x-coordinate on the board.
-    /// * `og` - did the `Cell` have a value when the `Board` was created?
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use sudoku::Cell;
-    /// let cell = Cell::new(1, 1, 1);
-    /// ```
     pub fn new(val: u8, row: u8, col: u8) -> Cell {
-        let og = match val {
-            0 => false,
-            _ => true,
-        };
         return Cell {
             row,
             col,
-            sqr: sqr_idx(col, row),
-            og,
+            og: match val {
+                0 => false,
+                _ => true,
+            },
             val,
         };
+    }
+
+    pub fn addr(&self) -> [u8; 2] {
+        return [self.col, self.row];
     }
 
     pub fn can_set(&self) -> bool {
@@ -61,21 +68,22 @@ impl Cell {
         self.val = val;
     }
 
-    pub fn is_set(&self) -> bool {
-        return self.val > 0;
-    }
-
     pub fn unset(&mut self) {
         if !self.can_set() {
             panic!("Cannot reset an OG Cell");
         }
         self.val = 0;
     }
+
+    pub fn is_set(&self) -> bool {
+        return self.val > 0;
+    }
 }
 
 /// 9x9 Sudoku board.
 pub struct Board {
-    cells: [Cell; 81],
+    cells: HashMap<[u8; 2], Cell>,
+    nhbrs: HashMap<[u8; 2], [[u8; 2]; 20]>,
 }
 
 impl fmt::Display for Board {
@@ -91,26 +99,37 @@ impl Board {
             .chars()
             .map(|s| s.to_digit(10).expect("parse error") as u8)
             .collect();
-        let mut cells: Vec<Cell> = Vec::new();
+        let mut cells = HashMap::new();
         for row in 1..10 {
             for col in 1..10 {
                 let val = digits[idx];
-                cells.push(Cell::new(val, row, col));
+                let cell = Cell::new(val, row, col);
+                cells.insert(cell.addr(), cell);
                 idx += 1;
             }
         }
-        let cells_array = match <[Cell; 81]>::try_from(cells) {
-            Ok(arr) => arr,
-            Err(_) => panic!("Could not convert cells to array."),
-        };
-        return Board { cells: cells_array };
+        let mut nhbrs = HashMap::new();
+        for (addr, cell) in &cells {
+            let cell_nhbrs = match <[[u8; 2]; 20]>::try_from(neighbours(&cell, &cells)) {
+                Ok(vec) => vec,
+                Err(o) => panic!("Could not create neighbours for {} {:?}", cell, o),
+            };
+            nhbrs.insert(*addr, cell_nhbrs);
+        }
+
+        return Board { cells, nhbrs };
     }
 
     /// String representation of a Board.
     pub fn string(&self) -> String {
+        let mut cells = Vec::new();
         let important_idx: [u8; 2] = [3, 6];
         let mut s: String = String::from("\n");
-        for cell in self.cells {
+        for (_, cell) in &self.cells {
+            cells.push(cell);
+        }
+        cells.sort();
+        for cell in cells {
             s.push_str(&cell.val.to_string());
             if important_idx.contains(&cell.col) {
                 s.push_str("|")
@@ -125,23 +144,43 @@ impl Board {
         return s;
     }
 
-    /// Cells sharing a column, row, or square.
-    ///
-    /// # Arguments
-    ///
-    /// *cell* - Target `Cell` to return neighbouring `Cells` for.
-    pub fn neighbours(&self, cell: &Cell) -> Vec<Cell> {
-        let mut nghs = Vec::new();
-        for friend in self.cells {
-            if (cell.row == friend.row) & (cell.col == friend.col) {
-                continue;
-            }
-            if (cell.row == friend.row) | (cell.col == friend.col) | (cell.sqr == friend.sqr) {
-                nghs.push(friend)
-            }
+    pub fn next_addr(&self, addr: [u8; 2]) -> [u8; 2] {
+        let col = addr[0];
+        let row = addr[1];
+        if col == 9 {
+            return [1, row + 1];
         }
-        return nghs;
+        return [col + 1, row];
     }
+
+    pub fn prev_addr(&self, addr: [u8; 2]) -> [u8; 2] {
+        let col = addr[0];
+        let row = addr[1];
+        if col == 1 {
+            return [9, row - 1];
+        }
+        return [col - 1, row];
+    }
+
+    pub fn neighbours(&self, addr: [u8; 2]) -> &[[u8; 2]; 20] {
+        return self.nhbrs.get(&addr).expect("No addr {addr:?}");
+    }
+}
+
+fn neighbours(cell: &Cell, cells: &HashMap<[u8; 2], Cell>) -> Vec<[u8; 2]> {
+    let mut nghs = Vec::new();
+    for (addr, friend) in cells {
+        if cell.addr() == *addr {
+            continue;
+        }
+        let shared_col = cell.col == friend.col;
+        let shared_row = cell.row == friend.row;
+        let shared_sqr = sqr_idx(cell.col, cell.row) == sqr_idx(friend.col, friend.row);
+        if shared_row | shared_col | shared_sqr {
+            nghs.push(*addr)
+        }
+    }
+    return nghs;
 }
 
 fn sqr_idx(col: u8, row: u8) -> u8 {
@@ -182,5 +221,48 @@ mod tests {
         );
         let board = Board::new(&board_string);
         assert_eq!(board.string(), exp);
+    }
+
+    #[test]
+    fn test_nhbrs() {
+        let exp: [[u8; 2]; 20] = [
+            [1, 2],
+            [1, 3],
+            [1, 4],
+            [1, 5],
+            [1, 6],
+            [1, 7],
+            [1, 8],
+            [1, 9],
+            [2, 1],
+            [2, 2],
+            [2, 3],
+            [3, 1],
+            [3, 2],
+            [3, 3],
+            [4, 1],
+            [5, 1],
+            [6, 1],
+            [7, 1],
+            [8, 1],
+            [9, 1],
+        ];
+        let board_string = String::from(
+            "\
+            530070000\
+            600195000\
+            098000060\
+            800060003\
+            400803001\
+            700020006\
+            060000280\
+            000419005\
+            000080079\
+            ",
+        );
+        let board = Board::new(&board_string);
+        let mut got = *board.neighbours([1, 1]);
+        got.sort();
+        assert_eq!(got.iter().eq(exp.iter()), true);
     }
 }
