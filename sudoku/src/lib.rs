@@ -4,33 +4,30 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 
+/// Address of a Cell on a sudoku board.
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Addr {
+    row: u8,
+    col: u8,
+}
+
 /// Digit box in a Sudoku board.
 #[derive(Copy, Clone, Debug, Eq)]
 pub struct Cell {
-    row: u8,
-    col: u8,
+    addr: Addr,
     val: u8,
     og: bool,
 }
 
-impl fmt::Display for Cell {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "c{}r{}v{}", self.col, self.row, self.val)
-    }
-}
-
 impl PartialEq for Cell {
     fn eq(&self, other: &Self) -> bool {
-        (self.col == other.col) & (self.row == other.row)
+        return self.addr.eq(&other.addr);
     }
 }
 
 impl Ord for Cell {
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.row == other.row {
-            return self.col.cmp(&other.col);
-        }
-        return self.row.cmp(&other.row);
+        return self.addr.cmp(&other.addr);
     }
 }
 
@@ -43,18 +40,13 @@ impl PartialOrd for Cell {
 impl Cell {
     pub fn new(val: u8, row: u8, col: u8) -> Cell {
         return Cell {
-            row,
-            col,
+            addr: Addr { row, col },
             og: match val {
                 0 => false,
                 _ => true,
             },
             val,
         };
-    }
-
-    pub fn addr(&self) -> [u8; 2] {
-        return [self.col, self.row];
     }
 
     pub fn can_set(&self) -> bool {
@@ -82,8 +74,8 @@ impl Cell {
 
 /// 9x9 Sudoku board.
 pub struct Board {
-    cells: HashMap<[u8; 2], Cell>,
-    nhbrs: HashMap<[u8; 2], [[u8; 2]; 20]>,
+    cells: HashMap<Addr, Cell>,
+    nhbrs: HashMap<Addr, [Addr; 20]>,
 }
 
 impl fmt::Display for Board {
@@ -104,15 +96,15 @@ impl Board {
             for col in 1..10 {
                 let val = digits[idx];
                 let cell = Cell::new(val, row, col);
-                cells.insert(cell.addr(), cell);
+                cells.insert(cell.addr, cell);
                 idx += 1;
             }
         }
         let mut nhbrs = HashMap::new();
         for (addr, cell) in &cells {
-            let cell_nhbrs = match <[[u8; 2]; 20]>::try_from(neighbours(&cell, &cells)) {
+            let cell_nhbrs = match <[Addr; 20]>::try_from(neighbours(&cell, &cells)) {
                 Ok(vec) => vec,
-                Err(o) => panic!("Could not create neighbours for {} {:?}", cell, o),
+                Err(o) => panic!("Could not create neighbours for {:?} {:?}", cell.addr, o),
             };
             nhbrs.insert(*addr, cell_nhbrs);
         }
@@ -131,12 +123,12 @@ impl Board {
         cells.sort();
         for cell in cells {
             s.push_str(&cell.val.to_string());
-            if important_idx.contains(&cell.col) {
+            if important_idx.contains(&cell.addr.col) {
                 s.push_str("|")
             }
-            if cell.col == 9 {
+            if cell.addr.col == 9 {
                 s.push_str("\n");
-                if important_idx.contains(&cell.row) {
+                if important_idx.contains(&cell.addr.row) {
                     s.push_str("---+---+---\n");
                 }
             }
@@ -144,13 +136,17 @@ impl Board {
         return s;
     }
 
-    pub fn next_addr(&self, addr: [u8; 2]) -> [u8; 2] {
-        let col = addr[0];
-        let row = addr[1];
-        if col == 9 {
-            return [1, row + 1];
+    pub fn next_addr(&self, addr: Addr) -> Addr {
+        if addr.col == 9 {
+            return Addr {
+                row: addr.row + 1,
+                col: 1,
+            };
         }
-        return [col + 1, row];
+        return Addr {
+            row: addr.row,
+            col: addr.col + 1,
+        };
     }
 
     pub fn prev_addr(&self, addr: [u8; 2]) -> [u8; 2] {
@@ -162,20 +158,21 @@ impl Board {
         return [col - 1, row];
     }
 
-    pub fn neighbours(&self, addr: [u8; 2]) -> &[[u8; 2]; 20] {
+    pub fn neighbours(&self, addr: Addr) -> &[Addr; 20] {
         return self.nhbrs.get(&addr).expect("No addr {addr:?}");
     }
 }
 
-fn neighbours(cell: &Cell, cells: &HashMap<[u8; 2], Cell>) -> Vec<[u8; 2]> {
+fn neighbours(cell: &Cell, cells: &HashMap<Addr, Cell>) -> Vec<Addr> {
     let mut nghs = Vec::new();
     for (addr, friend) in cells {
-        if cell.addr() == *addr {
+        if cell.addr == *addr {
             continue;
         }
-        let shared_col = cell.col == friend.col;
-        let shared_row = cell.row == friend.row;
-        let shared_sqr = sqr_idx(cell.col, cell.row) == sqr_idx(friend.col, friend.row);
+        let shared_col = cell.addr.col == friend.addr.col;
+        let shared_row = cell.addr.row == friend.addr.row;
+        let shared_sqr =
+            sqr_idx(cell.addr.col, cell.addr.row) == sqr_idx(friend.addr.col, friend.addr.row);
         if shared_row | shared_col | shared_sqr {
             nghs.push(*addr)
         }
@@ -225,27 +222,27 @@ mod tests {
 
     #[test]
     fn test_nhbrs() {
-        let exp: [[u8; 2]; 20] = [
-            [1, 2],
-            [1, 3],
-            [1, 4],
-            [1, 5],
-            [1, 6],
-            [1, 7],
-            [1, 8],
-            [1, 9],
-            [2, 1],
-            [2, 2],
-            [2, 3],
-            [3, 1],
-            [3, 2],
-            [3, 3],
-            [4, 1],
-            [5, 1],
-            [6, 1],
-            [7, 1],
-            [8, 1],
-            [9, 1],
+        let exp: [Addr; 20] = [
+            Addr { row: 1, col: 2 },
+            Addr { row: 1, col: 3 },
+            Addr { row: 1, col: 4 },
+            Addr { row: 1, col: 5 },
+            Addr { row: 1, col: 6 },
+            Addr { row: 1, col: 7 },
+            Addr { row: 1, col: 8 },
+            Addr { row: 1, col: 9 },
+            Addr { row: 2, col: 1 },
+            Addr { row: 2, col: 2 },
+            Addr { row: 2, col: 3 },
+            Addr { row: 3, col: 1 },
+            Addr { row: 3, col: 2 },
+            Addr { row: 3, col: 3 },
+            Addr { row: 4, col: 1 },
+            Addr { row: 5, col: 1 },
+            Addr { row: 6, col: 1 },
+            Addr { row: 7, col: 1 },
+            Addr { row: 8, col: 1 },
+            Addr { row: 9, col: 1 },
         ];
         let board_string = String::from(
             "\
@@ -261,7 +258,7 @@ mod tests {
             ",
         );
         let board = Board::new(&board_string);
-        let mut got = *board.neighbours([1, 1]);
+        let mut got = *board.neighbours(Addr { row: 1, col: 1 });
         got.sort();
         assert_eq!(got.iter().eq(exp.iter()), true);
     }
