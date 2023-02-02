@@ -85,7 +85,7 @@ impl fmt::Display for Board {
 }
 
 impl Board {
-    pub fn new(board_string: &String) -> Board {
+    pub fn new(board_string: &str) -> Board {
         let mut idx: usize = 0;
         let digits: Vec<u8> = board_string
             .chars()
@@ -136,7 +136,7 @@ impl Board {
         return s;
     }
 
-    pub fn next_addr(&self, addr: Addr) -> Addr {
+    pub fn next_addr(&self, addr: &Addr) -> Addr {
         if addr.col == 9 {
             return Addr {
                 row: addr.row + 1,
@@ -149,17 +149,52 @@ impl Board {
         };
     }
 
-    pub fn prev_addr(&self, addr: [u8; 2]) -> [u8; 2] {
-        let col = addr[0];
-        let row = addr[1];
-        if col == 1 {
-            return [9, row - 1];
+    pub fn prev_addr(&self, addr: &Addr) -> Addr {
+        if addr.col == 1 {
+            return Addr {
+                row: addr.row - 1,
+                col: 9,
+            };
         }
-        return [col - 1, row];
+        return Addr {
+            row: addr.row,
+            col: addr.col - 1,
+        };
     }
 
-    pub fn neighbours(&self, addr: Addr) -> &[Addr; 20] {
-        return self.nhbrs.get(&addr).expect("No addr {addr:?}");
+    pub fn neighbours(&self, addr: &Addr) -> &[Addr; 20] {
+        return self.nhbrs.get(addr).expect("No addr {addr:?}");
+    }
+
+    pub fn legal_values(&self, addr: &Addr) -> Vec<u8> {
+        let mut vals = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+        for nghbr in self.neighbours(addr) {
+            let cell = &self.cells.get(nghbr).expect("No addr {nghbr:?}");
+            if cell.val > 0 {
+                vals.remove(
+                    vals.binary_search(&cell.val)
+                        .expect("No value {cell.val:?} at addr {addr:?}"),
+                );
+            }
+        }
+        return vals;
+    }
+
+    pub fn can_set(&self, addr: &Addr) -> bool {
+        let cell = *self.cells.get(addr).expect("No addr {addr:?}");
+        return cell.can_set();
+    }
+
+    pub fn set(&mut self, addr: &Addr, val: u8) {
+        let mut cell = *self.cells.get(addr).expect("No addr {addr:?}");
+        cell.set(val);
+        self.cells.insert(*addr, cell);
+    }
+
+    pub fn unset(&mut self, addr: &Addr) {
+        let mut cell = *self.cells.get(addr).expect("No addr {addr:?}");
+        cell.unset();
+        self.cells.insert(*addr, cell);
     }
 }
 
@@ -188,6 +223,18 @@ fn sqr_idx(col: u8, row: u8) -> u8 {
 mod tests {
     use super::*;
 
+    const BOARD_STRING: &str = "\
+    530070000\
+    600195000\
+    098000060\
+    800060003\
+    400803001\
+    700020006\
+    060000280\
+    000419005\
+    000080079\
+    ";
+
     #[test]
     fn test_new_board() {
         let exp = "\n\
@@ -203,20 +250,7 @@ mod tests {
         000|419|005\n\
         000|080|079\n\
         ";
-        let board_string = String::from(
-            "\
-            530070000\
-            600195000\
-            098000060\
-            800060003\
-            400803001\
-            700020006\
-            060000280\
-            000419005\
-            000080079\
-            ",
-        );
-        let board = Board::new(&board_string);
+        let board = Board::new(&BOARD_STRING);
         assert_eq!(board.string(), exp);
     }
 
@@ -244,22 +278,49 @@ mod tests {
             Addr { row: 8, col: 1 },
             Addr { row: 9, col: 1 },
         ];
-        let board_string = String::from(
-            "\
-            530070000\
-            600195000\
-            098000060\
-            800060003\
-            400803001\
-            700020006\
-            060000280\
-            000419005\
-            000080079\
-            ",
-        );
-        let board = Board::new(&board_string);
-        let mut got = *board.neighbours(Addr { row: 1, col: 1 });
+        let board = Board::new(&BOARD_STRING);
+        let mut got = *board.neighbours(&Addr { row: 1, col: 1 });
         got.sort();
         assert_eq!(got.iter().eq(exp.iter()), true);
+    }
+
+    #[test]
+    fn test_next_addr() {
+        let board = Board::new(&BOARD_STRING);
+
+        let mut got = board.next_addr(&Addr { row: 1, col: 1 });
+        assert_eq!(got, Addr { row: 1, col: 2 });
+
+        got = board.next_addr(&Addr { row: 5, col: 9 });
+        assert_eq!(got, Addr { row: 6, col: 1 });
+    }
+
+    #[test]
+    fn test_prev_addr() {
+        let board = Board::new(&BOARD_STRING);
+
+        let mut got = board.prev_addr(&Addr { row: 9, col: 9 });
+        assert_eq!(got, Addr { row: 9, col: 8 });
+
+        got = board.prev_addr(&Addr { row: 6, col: 1 });
+        assert_eq!(got, Addr { row: 5, col: 9 });
+    }
+
+    #[test]
+    fn test_legal_values() {
+        let mut board = Board::new(&BOARD_STRING);
+
+        let mut got = board.legal_values(&Addr { row: 1, col: 3 });
+        assert_eq!(got, vec![1, 2, 4]);
+
+        board.set(&Addr { row: 2, col: 2 }, 4);
+
+        got = board.legal_values(&Addr { row: 1, col: 3 });
+        assert_eq!(got, vec![1, 2]);
+
+        board.unset(&Addr { row: 2, col: 2 });
+
+        got = board.legal_values(&Addr { row: 1, col: 3 });
+        assert_eq!(got, vec![1, 2, 4]);
     }
 }
