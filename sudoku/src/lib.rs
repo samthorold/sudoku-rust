@@ -7,8 +7,8 @@ use std::fmt;
 /// Address of a Cell on a sudoku board.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Addr {
-    row: u8,
-    col: u8,
+    pub row: u8,
+    pub col: u8,
 }
 
 /// Digit box in a Sudoku board.
@@ -54,17 +54,15 @@ impl Cell {
     }
 
     pub fn set(&mut self, val: u8) {
-        if !self.can_set() {
-            panic!("Cannot set an OG Cell");
+        if self.can_set() {
+            self.val = val;
         }
-        self.val = val;
     }
 
     pub fn unset(&mut self) {
-        if !self.can_set() {
-            panic!("Cannot reset an OG Cell");
+        if self.can_set() {
+            self.val = 0;
         }
-        self.val = 0;
     }
 
     pub fn is_set(&self) -> bool {
@@ -167,10 +165,14 @@ impl Board {
     }
 
     pub fn legal_values(&self, addr: &Addr) -> Vec<u8> {
+        if !self.can_set(addr) {
+            let cell = &self.cells.get(addr).expect("No addr {nghbr:?}");
+            return vec![cell.val];
+        }
         let mut vals = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
         for nghbr in self.neighbours(addr) {
             let cell = &self.cells.get(nghbr).expect("No addr {nghbr:?}");
-            if cell.val > 0 {
+            if vals.contains(&cell.val) {
                 vals.remove(
                     vals.binary_search(&cell.val)
                         .expect("No value {cell.val:?} at addr {addr:?}"),
@@ -187,6 +189,9 @@ impl Board {
 
     pub fn set(&mut self, addr: &Addr, val: u8) {
         let mut cell = *self.cells.get(addr).expect("No addr {addr:?}");
+        if !self.can_set(addr) {
+            return;
+        }
         cell.set(val);
         self.cells.insert(*addr, cell);
     }
@@ -290,6 +295,9 @@ mod tests {
 
         let mut got = board.next_addr(&Addr { row: 1, col: 1 });
         assert_eq!(got, Addr { row: 1, col: 2 });
+
+        got = board.next_addr(&Addr { row: 1, col: 9 });
+        assert_eq!(got, Addr { row: 2, col: 1 });
 
         got = board.next_addr(&Addr { row: 5, col: 9 });
         assert_eq!(got, Addr { row: 6, col: 1 });

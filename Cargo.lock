@@ -5,6 +5,9 @@ version = 3
 [[package]]
 name = "backtrack"
 version = "0.1.0"
+dependencies = [
+ "sudoku",
+]
 
 [[package]]
 name = "dlx"
