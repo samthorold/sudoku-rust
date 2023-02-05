@@ -1,6 +1,6 @@
-use sudoku;
+use board;
 
-pub fn backtrack(board: &mut sudoku::Board, addr: &sudoku::Addr, depth: i32) -> bool {
+pub fn backtrack(board: &mut board::Board, addr: &board::Addr, depth: i32) -> bool {
     for val in &board.legal_values(&addr) {
         board.set(&addr, *val);
         if depth < 80 {
@@ -48,8 +48,8 @@ mod tests {
         249|156|783\n\
         756|389|142\n\
         ";
-        let mut board = sudoku::Board::new(&BOARD_STRING);
-        backtrack(&mut board, &sudoku::Addr { row: 1, col: 1 }, 0);
+        let mut board = board::Board::new(&BOARD_STRING);
+        backtrack(&mut board, &board::Addr { row: 1, col: 1 }, 0);
         assert_eq!(board.string(), exp);
     }
 }

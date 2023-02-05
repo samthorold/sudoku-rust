@@ -4,6 +4,7 @@
 members = [
     "sudoku",
     "backtrack",
+    "board",
     "dlx",
 ]
 
