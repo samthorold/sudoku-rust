@@ -15,10 +15,12 @@ impl Config {
         }
         let method = args[1].clone();
         let board_string = args[2].clone();
-        Ok(Config {method, board_string })
+        Ok(Config {
+            method,
+            board_string,
+        })
     }
 }
-
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let mut board = board::Board::new(&config.board_string);

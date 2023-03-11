@@ -118,6 +118,7 @@ impl Board {
         for (_, cell) in &self.cells {
             cells.push(cell);
         }
+        // HashMap not sorted
         cells.sort();
         for cell in cells {
             s.push_str(&cell.val.to_string());
