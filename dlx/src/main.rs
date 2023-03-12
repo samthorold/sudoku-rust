@@ -9,5 +9,6 @@ fn main() {
         vec![0, 1, 0, 0, 0, 0, 1],
         vec![0, 0, 0, 1, 1, 0, 1],
     ];
-    dlx::from_matrix(&matrix);
+    let mut a = dlx::from_matrix(&matrix);
+    dlx::cover(&mut a, 1);
 }

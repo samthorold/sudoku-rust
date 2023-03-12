@@ -4,7 +4,28 @@ pub struct A {
     nodes: Vec<Vec<Node>>,
 }
 
-#[derive(Copy, Clone, Debug)]
+impl A {
+    fn get_node(&self, addr: NodeAddr) -> Node {
+        self.nodes[addr.r as usize][addr.c as usize]
+    }
+
+    fn set_node(&mut self, node: Node) {
+        self.nodes[node.a.r as usize][node.a.c as usize] = node;
+    }
+
+    fn get_col(&self, addr: ColAddr) -> Col {
+        match addr.c {
+            c if c >= 0 => self.cols[c as usize],
+            _ => self.root,
+        }
+    }
+
+    fn set_col(&mut self, col: Col) {
+        self.cols[col.a.c as usize] = col;
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 struct ColAddr {
     c: i32,
 }
@@ -73,7 +94,7 @@ impl Col {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 struct NodeAddr {
     r: i32,
     c: i32,
@@ -233,6 +254,43 @@ pub fn from_matrix(matrix: &Vec<Vec<u8>>) -> A {
         cols[w - 1] = cols[w - 1].set_r(-1);
     }
     return A { root, cols, nodes };
+}
+
+pub fn cover(a: &mut A, c: usize) {
+    let col = a.get_col(ColAddr { c: c as i32 });
+    println!("Covering {:#?}", col);
+    if col.s == 0 {
+        return;
+    }
+    // TODO: and if l or r is root?
+    let l = a.get_col(col.l);
+    let r = a.get_col(col.r);
+    a.set_col(l.set_r(r.a.c));
+    a.set_col(r.set_l(l.a.c));
+
+    let mut cover_node = a.get_node(col.d);
+    if cover_node.a.r < 0 {
+        return;
+    }
+    loop {
+        let mut node = a.get_node(cover_node.r);
+        loop {
+            if node.a == cover_node.a {
+                break;
+            }
+            // TODO: and if u or d is root?
+            let u = a.get_node(node.u);
+            let d = a.get_node(node.d);
+            a.set_node(u.set_d(d.a.r));
+            a.set_node(d.set_u(u.a.r));
+            a.set_col(col.decr_s());
+            node = a.get_node(node.r);
+        }
+        if cover_node.d.r < 0 {
+            break;
+        }
+        cover_node = a.get_node(cover_node.d);
+    }
 }
 
 #[cfg(test)]
