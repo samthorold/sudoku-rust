@@ -1,4 +1,5 @@
 pub struct A {
+    root: Col,
     cols: Vec<Col>,
     nodes: Vec<Vec<Node>>,
 }
@@ -154,49 +155,84 @@ pub fn from_matrix(matrix: &Vec<Vec<u8>>) -> A {
             let c32 = c.try_into().unwrap();
             if r == 0 {
                 cols.push(Col::new(c32));
+                if c > 0 {
+                    cols[c] = cols[c].set_l(c32 - 1);
+                    cols[c - 1] = cols[c - 1].set_r(c32);
+                }
             }
-            if c > 0 {
-                cols[c] = cols[c].set_l(c32 - 1);
-                cols[c - 1] = cols[c - 1].set_r(c32);
-            }
-            let mut node = Node::new(r32, c32);
+            row_nodes.push(Node::new(r32, c32));
             if *val == 1 {
+                println!("{r}{c}");
                 cols[c] = cols[c].incr_s();
-                node = node.set_c(c.try_into().unwrap());
+                row_nodes[c] = row_nodes[c].set_c(c32);
 
-                println!("{:#?} setting d ...", node.a);
                 if cols[c].d.r < 0 {
-                    // println!("col.d < 0 ...");
                     cols[c] = cols[c].set_d(r32)
                 } else {
                     let mut u = cols[c].d.r;
                     loop {
                         let next_u = nodes[u as usize][c].d.r;
-                        // println!("u={u}, next_u={next_u}");
                         if next_u < 0 {
-                            node = node.set_u(u);
+                            row_nodes[c] = row_nodes[c].set_u(u);
                             nodes[u as usize][c] = nodes[u as usize][c].set_d(r32);
-                            println!("u={u}, d={r}");
+                            println!("  u={u}, d={r}");
                             break;
                         } else {
-                            // println!("setting u={u} to next_u={next_u}");
                             u = next_u;
                         }
                     }
                 }
+
+                if c > 0 {
+                    let mut l = c as i32;
+                    loop {
+                        l = l - 1;
+                        if l < 0 {
+                            break;
+                        }
+                        if row_nodes[l as usize].c.c >= 0 {
+                            row_nodes[c] = row_nodes[c].set_l(l);
+                            row_nodes[l as usize] = row_nodes[l as usize].set_r(c32);
+                            println!("  l={l}, r={c}");
+                            break;
+                        }
+                    }
+                }
             }
-            // println!("{:#?}", node.a);
-            row_nodes.push(node);
         }
+        let mut l = 0;
+        let mut r = row_nodes.len();
+
+        // get to the rightmost legit node
+        loop {
+            r = r - 1;
+            if row_nodes[r].c.c >= 0 {
+                break;
+            }
+        }
+
+        // get to the leftmost legit node
+        loop {
+            if row_nodes[l].c.c >= 0 {
+                break;
+            }
+            l = l + 1;
+        }
+
+        row_nodes[r] = row_nodes[r].set_r(l as i32);
+        row_nodes[l] = row_nodes[l].set_l(r as i32);
+
         nodes.push(row_nodes);
 
-        // first Col will have initialised to l: 0
-        // final Col will have initialised to r: 0
-        // but root needs to know about first and last Col
-        root.set_r(cols[0].a.c);
-        root.set_l(cols[cols.len() - 1].a.c);
+        // TODO: UD for bottom and top nodes
+
+        root = root.set_r(0);
+        root = root.set_l(cols.len() as i32 - 1);
+        cols[0] = cols[0].set_l(-1);
+        let w = cols.len();
+        cols[w - 1] = cols[w - 1].set_r(-1);
     }
-    return A { cols, nodes };
+    return A { root, cols, nodes };
 }
 
 #[cfg(test)]
