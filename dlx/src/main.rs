@@ -11,4 +11,5 @@ fn main() {
     ];
     let mut a = dlx::from_matrix(&matrix);
     dlx::cover(&mut a, 1);
+    dlx::uncover(&mut a, 1);
 }

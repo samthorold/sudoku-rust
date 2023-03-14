@@ -45,6 +45,7 @@ pub struct Col {
     addr: ColAddr,
     l: ColAddr,
     r: ColAddr,
+    u: NodeAddr,
     d: NodeAddr,
     s: i32,
 }
@@ -56,6 +57,7 @@ impl Col {
             addr: ColAddr { c },
             l: ColAddr::new(),
             r: ColAddr::new(),
+            u: NodeAddr::new(),
             d: NodeAddr::new(),
             s: 0,
         }
@@ -83,6 +85,10 @@ impl Col {
         Col { r: r.addr, ..self }
     }
 
+    fn set_u(self, u: Node) -> Col {
+        Col { u: u.addr, ..self }
+    }
+
     fn set_d(self, d: Node) -> Col {
         Col { d: d.addr, ..self }
     }
@@ -104,7 +110,7 @@ impl NodeAddr {
 struct Node {
     addr: NodeAddr,
     is_legit: bool,
-    c: ColAddr,
+    // c: ColAddr,
     l: NodeAddr,
     r: NodeAddr,
     u: NodeAddr,
@@ -116,7 +122,7 @@ impl Node {
         Node {
             addr: NodeAddr { r, c },
             is_legit: false,
-            c: ColAddr::new(),
+            // c: ColAddr::new(),
             l: NodeAddr::new(),
             r: NodeAddr::new(),
             u: NodeAddr::new(),
@@ -124,9 +130,9 @@ impl Node {
         }
     }
 
-    fn set_c(self, c: Col) -> Node {
-        Node { c: c.addr, ..self }
-    }
+    // fn set_c(self, c: Col) -> Node {
+    //     Node { c: c.addr, ..self }
+    // }
 
     fn set_l(self, l: Node) -> Node {
         Node { l: l.addr, ..self }
@@ -171,7 +177,7 @@ pub fn from_matrix(matrix: &Vec<Vec<u8>>) -> A {
                 row_nodes[c].is_legit = true;
 
                 cols[c] = cols[c].incr_s();
-                row_nodes[c] = row_nodes[c].set_c(*cols.last().unwrap());
+                // row_nodes[c] = row_nodes[c].set_c(*cols.last().unwrap());
 
                 if cols[c].d.r < 0 {
                     // column's down addr will be initialised to -1, -1
@@ -248,10 +254,10 @@ pub fn from_matrix(matrix: &Vec<Vec<u8>>) -> A {
         println!("Setting c={j} ud ...");
         let u = cols[j].d;
         for i in (0..h).rev() {
-            // println!("{i}");
             if nodes[i][j].is_legit {
                 nodes[i][j] = nodes[i][j].set_d(nodes[u.r as usize][j]);
                 nodes[u.r as usize][j] = nodes[u.r as usize][j].set_u(nodes[i][j]);
+                cols[j] = cols[j].set_u(nodes[i][j]);
                 println!("  u={i}, d={}", u.r);
                 break;
             }
@@ -295,6 +301,38 @@ pub fn cover(a: &mut A, c: usize) {
         let maybe_cover_node = cover_node.d;
         // if we've gone back up the matrix, break
         if maybe_cover_node.r < cover_node.addr.r {
+            break;
+        }
+        cover_node = a.get_node(maybe_cover_node);
+        println!("  cover_node={:#?}", cover_node);
+    }
+}
+
+pub fn uncover(a: &mut A, c: usize) {
+    let col = a.get_col(ColAddr { c: c as i32 });
+    println!("Uncovering {:#?}", col);
+    if col.s == 0 {
+        return;
+    }
+    let mut cover_node = a.get_node(col.u);
+    println!("  cover_node={:#?}", cover_node);
+    loop {
+        let mut node = a.get_node(cover_node.l);
+        println!("    node={:#?}", node);
+        loop {
+            if node.addr == cover_node.addr {
+                break;
+            }
+            let u = a.get_node(node.u);
+            let d = a.get_node(node.d);
+            a.set_node(u.set_d(node));
+            a.set_node(d.set_u(node));
+            a.set_col(col.incr_s());
+            node = a.get_node(node.l);
+        }
+        let maybe_cover_node = cover_node.u;
+        // if we've gone back down the matrix, break
+        if maybe_cover_node.r > cover_node.addr.r {
             break;
         }
         cover_node = a.get_node(maybe_cover_node);
