@@ -10,6 +10,9 @@ fn main() {
         vec![0, 0, 0, 1, 1, 0, 1],
     ];
     let mut a = dlx::from_matrix(&matrix);
-    dlx::cover(&mut a, 1);
-    dlx::uncover(&mut a, 1);
+    let mut soln = Vec::new();
+
+    dlx::search(&mut a, 0, &mut soln, 3);
+    // dlx::cover(&mut a, dlx::ColAddr { c: 1 });
+    // dlx::uncover(&mut a, dlx::ColAddr { c: 1 });
 }
