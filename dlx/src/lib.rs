@@ -1,3 +1,5 @@
+use std::{thread, time::Duration};
+
 pub struct A {
     root: Col,
     cols: Vec<Col>,
@@ -27,7 +29,7 @@ impl A {
         self.cols[col.addr.c as usize] = col;
     }
 
-    fn choose_col(&self) -> Col {
+    pub fn choose_col(&self) -> Col {
         let mut s = i32::MAX;
         let mut a = ColAddr::new();
         for col in &self.cols {
@@ -40,7 +42,7 @@ impl A {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ColAddr {
     pub c: i32,
 }
@@ -54,7 +56,7 @@ impl ColAddr {
 #[derive(Copy, Clone, Debug)]
 pub struct Col {
     root: bool,
-    addr: ColAddr,
+    pub addr: ColAddr,
     l: ColAddr,
     r: ColAddr,
     u: NodeAddr,
@@ -106,7 +108,7 @@ impl Col {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct NodeAddr {
     r: i32,
     c: i32,
@@ -122,7 +124,7 @@ impl NodeAddr {
 struct Node {
     addr: NodeAddr,
     is_legit: bool,
-    c: ColAddr,
+    c: ColAddr, // this is self.addr.c
     l: NodeAddr,
     r: NodeAddr,
     u: NodeAddr,
@@ -189,7 +191,7 @@ pub fn from_matrix(matrix: &Vec<Vec<u8>>) -> A {
                 row_nodes[c].is_legit = true;
 
                 cols[c] = cols[c].incr_s();
-                row_nodes[c] = row_nodes[c].set_c(*cols.last().unwrap());
+                row_nodes[c] = row_nodes[c].set_c(cols[c]);
 
                 if cols[c].d.r < 0 {
                     // column's down addr will be initialised to -1, -1
@@ -250,9 +252,6 @@ pub fn from_matrix(matrix: &Vec<Vec<u8>>) -> A {
             l_ = l_ + 1;
         }
 
-        println!("Setting r={r} lr ...");
-        println!("  l={l_}, r={r_}");
-
         row_nodes[r_] = row_nodes[r_].set_r(row_nodes[l_]);
         row_nodes[l_] = row_nodes[l_].set_l(row_nodes[r_]);
 
@@ -278,15 +277,21 @@ pub fn from_matrix(matrix: &Vec<Vec<u8>>) -> A {
 
     root = root.set_r(cols[0]);
     root = root.set_l(*cols.last().unwrap());
+
+    // TODO: does this prevent wrapping around?
+    // -1 is not an address
     cols[0] = cols[0].set_l(root);
     cols[w - 1] = cols[w - 1].set_r(root);
+    // END TODO
+
     return A { root, cols, nodes };
 }
 
 pub fn cover(a: &mut A, c: ColAddr) {
     let col = a.get_col(c);
-    // println!("Covering {:#?}", col);
+    let og_size = col.s;
     if col.s == 0 {
+        println!("Col {} as no nodes", col.addr.c);
         return;
     }
     let l = a.get_col(col.l);
@@ -294,61 +299,55 @@ pub fn cover(a: &mut A, c: ColAddr) {
     a.set_col(l.set_r(r));
     a.set_col(r.set_l(l));
 
-    let mut cover_node = a.get_node(col.d);
-    // println!("  cover_node={:#?}", cover_node);
-    loop {
-        let maybe_cover_node = cover_node.d;
-        // if we've gone back up the matrix, break
-        if maybe_cover_node.r < cover_node.addr.r {
-            break;
-        }
-        let mut node = a.get_node(cover_node.r);
-        // println!("    node={:#?}", node);
-        loop {
-            if node.addr == cover_node.addr {
-                break;
-            }
-            let u = a.get_node(node.u);
-            let d = a.get_node(node.d);
+    let cover_node = a.get_node(col.d);
+    let mut cn = cover_node;
+    // let mut cinit = true;
+    let mut ri = 1;
+    while ri <= og_size {
+        // cinit = false;
+        let node = a.get_node(cn.r);
+        let mut n = node;
+        let mut ninit = true;
+        while ninit | (n.addr != node.addr) {
+            ninit = false;
+            let u = a.get_node(n.u);
+            let d = a.get_node(n.d);
             a.set_node(u.set_d(d));
             a.set_node(d.set_u(u));
             a.set_col(col.decr_s());
-            node = a.get_node(node.r);
+            println!(
+                "col {}\n  cover node {:#?}\n  cn {:#?}\n  node {:#?}\n  n {:#?}\n---",
+                col.addr.c, cover_node.addr, cn.addr, node.addr, n.addr
+            );
+            // thread::sleep(Duration::from_millis(1000));
+            n = a.get_node(n.r);
         }
-        cover_node = a.get_node(maybe_cover_node);
-        // println!("  cover_node={:#?}", cover_node);
+        cn = a.get_node(cn.d);
+        ri += 1;
     }
 }
 
 pub fn uncover(a: &mut A, c: ColAddr) {
     let col = a.get_col(c);
-    // println!("Uncovering {:#?}", col);
-    if col.s == 0 {
-        return;
-    }
-    let mut cover_node = a.get_node(col.u);
-    // println!("  cover_node={:#?}", cover_node);
-    loop {
-        let maybe_cover_node = cover_node.u;
-        // if we've gone back down the matrix, break
-        if maybe_cover_node.r > cover_node.addr.r {
-            break;
-        }
-        let mut node = a.get_node(cover_node.l);
-        // println!("    node={:#?}", node);
-        loop {
-            if node.addr == cover_node.addr {
-                break;
-            }
-            let u = a.get_node(node.u);
-            let d = a.get_node(node.d);
-            a.set_node(u.set_d(node));
-            a.set_node(d.set_u(node));
+    let cover_node = a.get_node(col.u);
+    let mut cn = cover_node;
+    let mut cinit = true;
+    while cinit | (cn.addr < cover_node.addr) {
+        cinit = false;
+        let node = a.get_node(cover_node.l);
+        let mut n = node;
+        let mut ninit = true;
+        while ninit | (n.addr != node.addr) {
+            ninit = false;
+            let u = a.get_node(n.u);
+            let d = a.get_node(n.d);
+            a.set_node(u.set_d(n));
+            a.set_node(d.set_u(n));
             a.set_col(col.incr_s());
-            node = a.get_node(node.l);
+            // thread::sleep(Duration::from_millis(1000));
+            n = a.get_node(n.l);
         }
-        cover_node = a.get_node(maybe_cover_node);
-        // println!("  cover_node={:#?}", cover_node);
+        cn = a.get_node(cn.u);
     }
 
     let l = a.get_col(col.l);
@@ -358,63 +357,78 @@ pub fn uncover(a: &mut A, c: ColAddr) {
 }
 
 pub fn search(a: &mut A, depth: usize, soln: &mut Vec<usize>, soln_length: usize) {
-    println!("depth={depth}");
+    // if depth > 3 {
+    //     return;
+    // }
+    println!("\ndepth={depth}");
     if a.get_col(a.root.r).root {
+        println!("Only root.");
         return;
     }
 
     let col = a.choose_col();
 
+    println!("\n  cover {}", col.addr.c);
     cover(a, col.addr);
+    println!("  covered {:#?}", col);
 
     let down = col.d;
-    let mut d = down;
-    let mut di = 0;
 
-    loop {
-        println!("  d.r={}", d.r);
+    println!("  down {:#?}", down);
+    let mut d = down;
+    let mut dinit = true;
+
+    while dinit | (d != down) {
+        dinit = false;
+        println!("\n  d.r={}", d.r);
         // come back up the rows
-        if (di > 0) & (d.r == down.r) {
-            break;
-        }
-        di += 1;
+        // if !dinit & (d.r <= down.r) {
+        //     break;
+        // }
         if (soln.len() == 0) | (depth >= soln.len()) {
             println!("  push {}", d.r);
+            // Include this row in the solution.
             soln.push(d.r as usize);
         } else {
             println!("  reset {}", d.r);
             soln[depth] = d.r as usize;
         }
         let right = a.get_node(d).r;
+        println!("  right {:#?}", right);
         let mut r = right;
 
-        let mut ri = 0;
-        loop {
+        let mut rinit = true;
+        while rinit | (r != right) {
+            rinit = false;
+            println!("\n  r {:#?}", r);
             // come back round the cols
-            if (ri > 0) & (r.c == right.c) {
-                break;
-            }
-            ri += 1;
-            println!("  cover {}", a.get_node(r).c.c);
+            // if !rinit & (r.c <= right.c) {
+            //     break;
+            // }
+            println!("\n  cover {:#?}", a.get_node(r).c);
             cover(a, a.get_node(r).c);
+            println!("\n  covered {:#?}", a.get_node(r).c);
             r = a.get_node(r).r;
         }
+        // return;
         search(a, depth + 1, soln, soln_length);
-        println!("{:#?}", soln);
+        println!("soln {:#?}", soln);
         if soln.len() == soln_length {
             return;
         }
         let left = a.get_node(down).l;
         let mut l = left;
-        let mut li = 0;
-        loop {
+        let mut linit = true;
+        while linit | (l != left) {
+            linit = false;
             // come back round the cols
-            if (li > 0) & (l.c == left.c) {
-                break;
-            }
-            li += 1;
-            println!("  uncover {}", a.get_node(l).c.c);
+            // if !linit & (l.c >= left.c) {
+            //     break;
+            // }
+            println!("\n  uncover {}", a.get_node(l).c.c);
             uncover(a, a.get_node(l).c);
+            println!("\n  uncovered {:#?}", a.get_node(l));
+
             l = a.get_node(l).l;
         }
         d = a.get_node(d).d;
