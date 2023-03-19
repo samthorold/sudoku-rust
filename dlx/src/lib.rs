@@ -115,7 +115,6 @@ impl Node {
 
     fn incr_size(self) -> Node {
         if self.is_header {
-            // println!("incr {} {}", self.addr.col, self.size);
             Node {
                 size: self.size + 1,
                 ..self
@@ -127,7 +126,6 @@ impl Node {
 
     fn decr_size(self) -> Node {
         if self.is_header {
-            // println!("decr {} {}", self.addr.col, self.size);
             Node {
                 size: self.size - 1,
                 ..self
@@ -174,7 +172,6 @@ pub fn from_matrix(matrix: &Vec<Vec<u8>>) -> A {
 
     let mut headers = <Vec<Node>>::new();
     let mut nodes = <Vec<Vec<Node>>>::new();
-    // let mut nodes = HashMap<Node, Node>::new();
 
     for (r, row) in matrix.into_iter().enumerate() {
         let mut row_nodes = <Vec<Node>>::new();
@@ -266,7 +263,6 @@ pub fn from_matrix(matrix: &Vec<Vec<u8>>) -> A {
         for i in (0..h).rev() {
             if nodes[i][j].is_legit {
                 nodes[i][j] = nodes[i][j].set_down(headers[j]);
-                // nodes[u.row as usize][j] = nodes[u.row as usize][j].set_up(headers[j]);
                 headers[j] = headers[j].set_up(nodes[i][j]);
                 break;
             }
