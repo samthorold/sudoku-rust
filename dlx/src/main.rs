@@ -12,7 +12,7 @@ fn main() {
     let mut a = dlx::from_matrix(&matrix);
     let mut soln = Vec::new();
 
-    println!("{}", a.choose_col().addr.c);
+    println!("{}", a.choose_col().addr.col);
 
     dlx::search(&mut a, 0, &mut soln, 3);
     // dlx::cover(&mut a, dlx::ColAddr { c: 1 });

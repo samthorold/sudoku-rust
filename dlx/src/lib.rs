@@ -1,202 +1,284 @@
-use std::{thread, time::Duration};
+use std::{collections::HashMap, thread, time::Duration};
 
 pub struct A {
-    root: Col,
-    cols: Vec<Col>,
+    root: Node,
+    headers: Vec<Node>,
     nodes: Vec<Vec<Node>>,
 }
 
 impl A {
-    fn get_node(&self, addr: NodeAddr) -> Node {
-        if (addr.r < 0) | (addr.c < 0) {
-            panic!("Invalid node addr {}{}", addr.r, addr.c);
+    // fn get_header(&self, addr: Addr) -> Node {
+    //     match addr.col {
+    //         c if c >= 0 => self.headers[c as usize],
+    //         _ => self.root,
+    //     }
+    // }
+
+    fn get_node(&self, addr: Addr) -> Node {
+        // println!("{:#?}", addr);
+        if addr.row < 0 {
+            // println!("is header");
+            match addr.col {
+                c if c >= 0 => self.headers[c as usize],
+                _ => self.root,
+            }
+        } else {
+            if (addr.row < 0) | (addr.col < 0) {
+                panic!("Invalid node addr {}{}", addr.row, addr.col);
+            }
+            self.nodes[addr.row as usize][addr.col as usize]
         }
-        self.nodes[addr.r as usize][addr.c as usize]
     }
 
     fn set_node(&mut self, node: Node) {
-        self.nodes[node.addr.r as usize][node.addr.c as usize] = node;
-    }
-
-    fn get_col(&self, addr: ColAddr) -> Col {
-        match addr.c {
-            c if c >= 0 => self.cols[c as usize],
-            _ => self.root,
+        if node.root {
+            self.root = node;
+        } else if node.addr.row < 0 {
+            self.headers[node.addr.col as usize] = node;
+        } else {
+            self.nodes[node.addr.row as usize][node.addr.col as usize] = node;
         }
     }
 
-    fn set_col(&mut self, col: Col) {
-        self.cols[col.addr.c as usize] = col;
+    fn set_left(&mut self, node: Addr, other: Addr) {
+        self.set_node(self.get_node(node).set_left(self.get_node(other)));
     }
 
-    pub fn choose_col(&self) -> Col {
-        let mut s = i32::MAX;
-        let mut a = ColAddr::new();
-        for col in &self.cols {
-            if col.s < s {
-                a = col.addr;
-                s = col.s;
+    fn set_right(&mut self, node: Addr, other: Addr) {
+        self.set_node(self.get_node(node).set_right(self.get_node(other)));
+    }
+
+    fn set_up(&mut self, node: Addr, other: Addr) {
+        self.set_node(self.get_node(node).set_up(self.get_node(other)));
+    }
+
+    fn set_down(&mut self, node: Addr, other: Addr) {
+        self.set_node(self.get_node(node).set_down(self.get_node(other)));
+    }
+
+    // fn set_header(&mut self, node: Addr, other: Addr) {
+    //     self.set_node(self.get_node(node).set_header(self.get_node(other)));
+    // }
+
+    pub fn choose_col(&self) -> Node {
+        let mut size = usize::MAX;
+        let mut addr = Addr::new();
+        for col in &self.headers {
+            if col.size < size {
+                addr = col.addr;
+                size = col.size;
             }
         }
-        self.get_col(a)
+        self.get_node(addr)
     }
 }
 
+// #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+// pub struct ColAddr {
+//     pub c: i32,
+// }
+
+// impl ColAddr {
+//     fn new() -> ColAddr {
+//         ColAddr { c: -1 }
+//     }
+// }
+
+// #[derive(Copy, Clone, Debug)]
+// pub struct Col {
+//     root: bool,
+//     pub addr: ColAddr,
+//     l: ColAddr,
+//     r: ColAddr,
+//     u: NodeAddr,
+//     d: NodeAddr,
+//     s: i32,
+// }
+
+// impl Col {
+//     fn new(c: i32) -> Col {
+//         Col {
+//             root: false,
+//             addr: ColAddr { c },
+//             l: ColAddr::new(),
+//             r: ColAddr::new(),
+//             u: NodeAddr::new(),
+//             d: NodeAddr::new(),
+//             s: 0,
+//         }
+//     }
+
+//     fn incr_s(self) -> Col {
+//         Col {
+//             s: self.s + 1,
+//             ..self
+//         }
+//     }
+
+//     fn decr_s(self) -> Col {
+//         Col {
+//             s: self.s - 1,
+//             ..self
+//         }
+//     }
+
+//     fn set_l(self, l: Col) -> Col {
+//         Col { l: l.addr, ..self }
+//     }
+
+//     fn set_right(self, r: Col) -> Col {
+//         Col { r: r.addr, ..self }
+//     }
+
+//     fn set_up(self, u: Node) -> Col {
+//         Col { u: u.addr, ..self }
+//     }
+
+//     fn set_down(self, d: Node) -> Col {
+//         Col { d: d.addr, ..self }
+//     }
+// }
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ColAddr {
-    pub c: i32,
+pub struct Addr {
+    pub row: i32,
+    pub col: i32,
 }
 
-impl ColAddr {
-    fn new() -> ColAddr {
-        ColAddr { c: -1 }
+impl Addr {
+    fn new() -> Addr {
+        Addr { row: -1, col: -1 }
     }
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Col {
+pub struct Node {
     root: bool,
-    pub addr: ColAddr,
-    l: ColAddr,
-    r: ColAddr,
-    u: NodeAddr,
-    d: NodeAddr,
-    s: i32,
-}
-
-impl Col {
-    fn new(c: i32) -> Col {
-        Col {
-            root: false,
-            addr: ColAddr { c },
-            l: ColAddr::new(),
-            r: ColAddr::new(),
-            u: NodeAddr::new(),
-            d: NodeAddr::new(),
-            s: 0,
-        }
-    }
-
-    fn incr_s(self) -> Col {
-        Col {
-            s: self.s + 1,
-            ..self
-        }
-    }
-
-    fn decr_s(self) -> Col {
-        Col {
-            s: self.s - 1,
-            ..self
-        }
-    }
-
-    fn set_l(self, l: Col) -> Col {
-        Col { l: l.addr, ..self }
-    }
-
-    fn set_r(self, r: Col) -> Col {
-        Col { r: r.addr, ..self }
-    }
-
-    fn set_u(self, u: Node) -> Col {
-        Col { u: u.addr, ..self }
-    }
-
-    fn set_d(self, d: Node) -> Col {
-        Col { d: d.addr, ..self }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct NodeAddr {
-    r: i32,
-    c: i32,
-}
-
-impl NodeAddr {
-    fn new() -> NodeAddr {
-        NodeAddr { r: -1, c: -1 }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-struct Node {
-    addr: NodeAddr,
+    pub addr: Addr,
+    is_header: bool,
     is_legit: bool,
-    c: ColAddr, // this is self.addr.c
-    l: NodeAddr,
-    r: NodeAddr,
-    u: NodeAddr,
-    d: NodeAddr,
+    size: usize,
+    header: Addr,
+    left: Addr,
+    right: Addr,
+    up: Addr,
+    down: Addr,
 }
 
 impl Node {
-    fn new(r: i32, c: i32) -> Node {
+    fn new(row: i32, col: i32, is_header: bool) -> Node {
         Node {
-            addr: NodeAddr { r, c },
+            root: false,
+            addr: Addr { row, col },
+            is_header,
             is_legit: false,
-            c: ColAddr::new(),
-            l: NodeAddr::new(),
-            r: NodeAddr::new(),
-            u: NodeAddr::new(),
-            d: NodeAddr::new(),
+            size: 0,
+            header: Addr::new(),
+            left: Addr::new(),
+            right: Addr::new(),
+            up: Addr::new(),
+            down: Addr::new(),
         }
     }
 
-    fn set_c(self, c: Col) -> Node {
-        Node { c: c.addr, ..self }
+    fn set_header(self, node: Node) -> Node {
+        if self.is_header | self.root {
+            panic!("Cannot set the header of a header or the root node")
+        } else {
+            // println!("set header {:#?} {:#?}", self.addr, node.addr);
+            Node {
+                header: node.addr,
+                ..self
+            }
+        }
     }
 
-    fn set_l(self, l: Node) -> Node {
-        Node { l: l.addr, ..self }
+    fn incr_size(self) -> Node {
+        if self.is_header {
+            println!("incr {} {}", self.addr.col, self.size);
+            Node {
+                size: self.size + 1,
+                ..self
+            }
+        } else {
+            panic!("Cannot set the size of a non-header node")
+        }
     }
 
-    fn set_r(self, r: Node) -> Node {
-        Node { r: r.addr, ..self }
+    fn decr_size(self) -> Node {
+        if self.is_header {
+            println!("decr {} {}", self.addr.col, self.size);
+            Node {
+                size: self.size - 1,
+                ..self
+            }
+        } else {
+            panic!("Cannot set the size of a non-header node")
+        }
     }
 
-    fn set_u(self, u: Node) -> Node {
-        Node { u: u.addr, ..self }
+    fn set_left(self, node: Node) -> Node {
+        Node {
+            left: node.addr,
+            ..self
+        }
     }
 
-    fn set_d(self, d: Node) -> Node {
-        Node { d: d.addr, ..self }
+    fn set_right(self, node: Node) -> Node {
+        Node {
+            right: node.addr,
+            ..self
+        }
+    }
+
+    fn set_up(self, node: Node) -> Node {
+        Node {
+            up: node.addr,
+            ..self
+        }
+    }
+
+    fn set_down(self, node: Node) -> Node {
+        Node {
+            down: node.addr,
+            ..self
+        }
     }
 }
 
 /// Create a problem, `A`, from a matrix of 0s and 1s.
 pub fn from_matrix(matrix: &Vec<Vec<u8>>) -> A {
     // the "root" col is used to start off each iteration of covering
-    let mut root = Col::new(0);
+    let mut root = Node::new(-1, -1, true);
     root.root = true;
 
-    let mut cols = <Vec<Col>>::new();
+    let mut headers = <Vec<Node>>::new();
     let mut nodes = <Vec<Vec<Node>>>::new();
+    // let mut nodes = HashMap<Node, Node>::new();
 
     for (r, row) in matrix.into_iter().enumerate() {
         let mut row_nodes = <Vec<Node>>::new();
 
         for (c, val) in row.into_iter().enumerate() {
             if r == 0 {
-                cols.push(Col::new(c as i32));
+                headers.push(Node::new(-1, c as i32, true));
                 if c > 0 {
-                    cols[c] = cols[c].set_l(cols[c - 1]);
-                    cols[c - 1] = cols[c - 1].set_r(*cols.last().unwrap());
+                    headers[c] = headers[c].set_left(headers[c - 1]);
+                    headers[c - 1] = headers[c - 1].set_right(headers[c]);
                 }
             }
-            row_nodes.push(Node::new(r as i32, c as i32));
+            row_nodes.push(Node::new(r as i32, c as i32, false));
             if *val == 1 {
-                // println!("{r}{c}");
+                println!("{r}{c}");
                 row_nodes[c].is_legit = true;
 
-                cols[c] = cols[c].incr_s();
-                row_nodes[c] = row_nodes[c].set_c(cols[c]);
+                headers[c] = headers[c].incr_size();
+                row_nodes[c] = row_nodes[c].set_header(headers[c]);
 
-                if cols[c].d.r < 0 {
+                if headers[c].down.row < 0 {
                     // column's down addr will be initialised to -1, -1
                     // so down.right -1 means no down addr set yet for a column
-                    cols[c] = cols[c].set_d(row_nodes[c]);
+                    headers[c] = headers[c].set_down(row_nodes[c]);
                 } else {
                     // otherwise we need to find the last legit node
                     // and connect the last legit node and the current node
@@ -208,9 +290,9 @@ pub fn from_matrix(matrix: &Vec<Vec<u8>>) -> A {
                         }
                         if nodes[u as usize][c].is_legit {
                             nodes[u as usize][c] =
-                                nodes[u as usize][c].set_d(*row_nodes.last().unwrap());
-                            row_nodes[c] = row_nodes[c].set_u(nodes[u as usize][c]);
-                            // println!("  u={u}, d={r}");
+                                nodes[u as usize][c].set_down(*row_nodes.last().unwrap());
+                            row_nodes[c] = row_nodes[c].set_up(nodes[u as usize][c]);
+                            println!("  u={u}, d={r}");
                             break;
                         }
                     }
@@ -224,9 +306,9 @@ pub fn from_matrix(matrix: &Vec<Vec<u8>>) -> A {
                             break;
                         }
                         if row_nodes[l as usize].is_legit {
-                            row_nodes[c] = row_nodes[c].set_l(row_nodes[l as usize]);
-                            row_nodes[l as usize] = row_nodes[l as usize].set_r(row_nodes[c]);
-                            // println!("  l={l}, r={c}");
+                            row_nodes[c] = row_nodes[c].set_left(row_nodes[l as usize]);
+                            row_nodes[l as usize] = row_nodes[l as usize].set_right(row_nodes[c]);
+                            println!("  l={l}, r={c}");
                             break;
                         }
                     }
@@ -252,108 +334,100 @@ pub fn from_matrix(matrix: &Vec<Vec<u8>>) -> A {
             l_ = l_ + 1;
         }
 
-        row_nodes[r_] = row_nodes[r_].set_r(row_nodes[l_]);
-        row_nodes[l_] = row_nodes[l_].set_l(row_nodes[r_]);
+        row_nodes[r_] = row_nodes[r_].set_right(row_nodes[l_]);
+        row_nodes[l_] = row_nodes[l_].set_left(row_nodes[r_]);
 
         nodes.push(row_nodes);
     }
 
     let h = nodes.len();
-    let w = cols.len();
+    let w = headers.len();
 
     for j in 0..w {
-        // println!("Setting c={j} ud ...");
-        let u = cols[j].d;
+        println!("Setting c={j} ud ...");
+        let u = headers[j].down;
         for i in (0..h).rev() {
             if nodes[i][j].is_legit {
-                nodes[i][j] = nodes[i][j].set_d(nodes[u.r as usize][j]);
-                nodes[u.r as usize][j] = nodes[u.r as usize][j].set_u(nodes[i][j]);
-                cols[j] = cols[j].set_u(nodes[i][j]);
-                // println!("  u={i}, d={}", u.r);
+                // nodes[i][j] = nodes[i][j].set_down(nodes[u.row as usize][j]);
+                nodes[i][j] = nodes[i][j].set_down(headers[j]);
+                // nodes[u.row as usize][j] = nodes[u.row as usize][j].set_up(nodes[i][j]);
+                nodes[u.row as usize][j] = nodes[u.row as usize][j].set_up(headers[j]);
+                headers[j] = headers[j].set_up(nodes[i][j]);
+                println!("  u={i}, d={}", u.row);
                 break;
             }
         }
     }
 
-    root = root.set_r(cols[0]);
-    root = root.set_l(*cols.last().unwrap());
+    root = root.set_right(headers[0]);
+    root = root.set_left(*headers.last().unwrap());
 
-    // TODO: does this prevent wrapping around?
-    // -1 is not an address
-    cols[0] = cols[0].set_l(root);
-    cols[w - 1] = cols[w - 1].set_r(root);
-    // END TODO
+    headers[0] = headers[0].set_left(root);
+    headers[w - 1] = headers[w - 1].set_right(root);
 
-    return A { root, cols, nodes };
+    return A {
+        root,
+        headers,
+        nodes,
+    };
 }
 
-pub fn cover(a: &mut A, c: ColAddr) {
-    let col = a.get_col(c);
-    let og_size = col.s;
-    if col.s == 0 {
-        println!("Col {} as no nodes", col.addr.c);
+pub fn cover(a: &mut A, header: Node) {
+    // if header.size == 0 {
+    //     println!("header {} as no nodes", header.addr.col);
+    //     return;
+    // }
+
+    // println!("c  covering {:#?}", header.addr);
+
+    let mut cover_node = a.get_node(header.down);
+
+    if cover_node.is_header {
+        println!("Header {} down points to itself", header.addr.col);
         return;
     }
-    let l = a.get_col(col.l);
-    let r = a.get_col(col.r);
-    a.set_col(l.set_r(r));
-    a.set_col(r.set_l(l));
 
-    let cover_node = a.get_node(col.d);
-    let mut cn = cover_node;
-    // let mut cinit = true;
-    let mut ri = 1;
-    while ri <= og_size {
-        // cinit = false;
-        let node = a.get_node(cn.r);
-        let mut n = node;
-        let mut ninit = true;
-        while ninit | (n.addr != node.addr) {
-            ninit = false;
-            let u = a.get_node(n.u);
-            let d = a.get_node(n.d);
-            a.set_node(u.set_d(d));
-            a.set_node(d.set_u(u));
-            a.set_col(col.decr_s());
-            println!(
-                "col {}\n  cover node {:#?}\n  cn {:#?}\n  node {:#?}\n  n {:#?}\n---",
-                col.addr.c, cover_node.addr, cn.addr, node.addr, n.addr
-            );
+    a.set_right(header.left, header.right);
+    a.set_left(header.right, header.left);
+    while !cover_node.is_header {
+        // println!("c  cover_node {:#?}", cover_node.addr);
+        let mut node = a.get_node(cover_node.right);
+        while node.addr != cover_node.addr {
+            a.set_down(node.up, node.down);
+            a.set_up(node.down, node.up);
+            a.set_node(a.get_node(node.header).decr_size());
+            // println!(
+            //     "c  col {}\nc  up {:#?}\nc  down {:#?}",
+            //     header.addr.col, node.up, node.down
+            // );
             // thread::sleep(Duration::from_millis(1000));
-            n = a.get_node(n.r);
+            node = a.get_node(node.right);
         }
-        cn = a.get_node(cn.d);
-        ri += 1;
+        cover_node = a.get_node(cover_node.down);
     }
 }
 
-pub fn uncover(a: &mut A, c: ColAddr) {
-    let col = a.get_col(c);
-    let cover_node = a.get_node(col.u);
-    let mut cn = cover_node;
-    let mut cinit = true;
-    while cinit | (cn.addr < cover_node.addr) {
-        cinit = false;
-        let node = a.get_node(cover_node.l);
-        let mut n = node;
-        let mut ninit = true;
-        while ninit | (n.addr != node.addr) {
-            ninit = false;
-            let u = a.get_node(n.u);
-            let d = a.get_node(n.d);
-            a.set_node(u.set_d(n));
-            a.set_node(d.set_u(n));
-            a.set_col(col.incr_s());
-            // thread::sleep(Duration::from_millis(1000));
-            n = a.get_node(n.l);
+pub fn uncover(a: &mut A, header: Node) {
+    // println!("c  uncovering {:#?}", header);
+    let mut cover_node = a.get_node(header.up);
+    while !cover_node.is_header {
+        // println!("uc  cover_node {:#?}", cover_node);
+        let mut node = a.get_node(cover_node.left);
+        while node.addr != cover_node.addr {
+            a.set_down(node.up, node.addr);
+            a.set_up(node.down, node.addr);
+            a.set_node(a.get_node(node.header).incr_size());
+            // println!(
+            //     "c  col {}\nc  up {:#?}\nc  down {:#?}",
+            //     header.addr.col, node.up, node.down
+            // );
+            // thread::sleep(Duration::from_millis(100));
+            node = a.get_node(node.left);
         }
-        cn = a.get_node(cn.u);
+        cover_node = a.get_node(cover_node.up);
     }
-
-    let l = a.get_col(col.l);
-    let r = a.get_col(col.r);
-    a.set_col(l.set_r(col));
-    a.set_col(r.set_l(col));
+    a.set_left(header.right, header.addr);
+    a.set_right(header.left, header.addr);
 }
 
 pub fn search(a: &mut A, depth: usize, soln: &mut Vec<usize>, soln_length: usize) {
@@ -361,54 +435,29 @@ pub fn search(a: &mut A, depth: usize, soln: &mut Vec<usize>, soln_length: usize
     //     return;
     // }
     println!("\ndepth={depth}");
-    if a.get_col(a.root.r).root {
+    if a.get_node(a.root.right).root {
         println!("Only root.");
         return;
     }
 
     let col = a.choose_col();
 
-    println!("\n  cover {}", col.addr.c);
-    cover(a, col.addr);
-    println!("  covered {:#?}", col);
+    cover(a, col);
 
-    let down = col.d;
+    let mut down = a.get_node(col.down);
 
-    println!("  down {:#?}", down);
-    let mut d = down;
-    let mut dinit = true;
-
-    while dinit | (d != down) {
-        dinit = false;
-        println!("\n  d.r={}", d.r);
-        // come back up the rows
-        // if !dinit & (d.r <= down.r) {
-        //     break;
-        // }
+    while !down.is_header {
         if (soln.len() == 0) | (depth >= soln.len()) {
-            println!("  push {}", d.r);
-            // Include this row in the solution.
-            soln.push(d.r as usize);
+            println!("  push {}", down.addr.row);
+            soln.push(down.addr.row as usize);
         } else {
-            println!("  reset {}", d.r);
-            soln[depth] = d.r as usize;
+            println!("  reset {}", down.addr.row);
+            soln[depth] = down.addr.row as usize;
         }
-        let right = a.get_node(d).r;
-        println!("  right {:#?}", right);
-        let mut r = right;
-
-        let mut rinit = true;
-        while rinit | (r != right) {
-            rinit = false;
-            println!("\n  r {:#?}", r);
-            // come back round the cols
-            // if !rinit & (r.c <= right.c) {
-            //     break;
-            // }
-            println!("\n  cover {:#?}", a.get_node(r).c);
-            cover(a, a.get_node(r).c);
-            println!("\n  covered {:#?}", a.get_node(r).c);
-            r = a.get_node(r).r;
+        let mut right = a.get_node(down.right);
+        while right.addr != down.addr {
+            cover(a, a.get_node(right.header));
+            right = a.get_node(right.right);
         }
         // return;
         search(a, depth + 1, soln, soln_length);
@@ -416,24 +465,14 @@ pub fn search(a: &mut A, depth: usize, soln: &mut Vec<usize>, soln_length: usize
         if soln.len() == soln_length {
             return;
         }
-        let left = a.get_node(down).l;
-        let mut l = left;
-        let mut linit = true;
-        while linit | (l != left) {
-            linit = false;
-            // come back round the cols
-            // if !linit & (l.c >= left.c) {
-            //     break;
-            // }
-            println!("\n  uncover {}", a.get_node(l).c.c);
-            uncover(a, a.get_node(l).c);
-            println!("\n  uncovered {:#?}", a.get_node(l));
-
-            l = a.get_node(l).l;
+        let mut left = a.get_node(down.left);
+        while left.addr != down.addr {
+            uncover(a, a.get_node(left.header));
+            left = a.get_node(left.left);
         }
-        d = a.get_node(d).d;
+        down = a.get_node(down.down);
     }
-    uncover(a, col.addr);
+    uncover(a, col);
 }
 
 #[cfg(test)]
